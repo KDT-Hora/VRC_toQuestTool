@@ -1,0 +1,16 @@
+{
+  "name": "com.vrc-rufu.quest-avatar-converter",
+  "displayName": "Quest Avatar Converter",
+  "version": "0.1.0",
+  "unity": "2022.3",
+  "description": "Generates a Quest/Android-compatible derivative of a PC-platform VRChat avatar without modifying the PC avatar or any asset it references (Shader conversion, per-Material Texture atlasing/resizing, AAO Trace And Optimize integration, Quest/PhysBone compatibility checking).",
+  "author": {
+    "name": "rufu"
+  },
+  "license": "MIT",
+  "dependencies": {
+    "com.vrchat.avatars": "3.10.5",
+    "com.anatawa12.avatar-optimizer": "1.9.19",
+    "com.unity.test-framework": "1.1.33"
+  }
+}

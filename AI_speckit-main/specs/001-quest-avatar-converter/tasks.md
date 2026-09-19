@@ -23,8 +23,9 @@ each story is independently implementable, testable, and deliverable as an incre
 - **[P]**: Can run in parallel (different files, no dependencies)
 - **[Story]**: Which user story this task belongs to (US1, US2, US3)
 - File paths below are relative to the UPM package root
-  `Packages/com.kdt-hora.quest-avatar-converter/` unless stated otherwise (see plan.md Project
-  Structure; the package name itself is a placeholder to confirm with the project owner).
+  `UnityProject/Packages/com.vrc-rufu.quest-avatar-converter/` unless stated otherwise (see plan.md
+  Project Structure). `UnityProject/` is a local Unity 2022.3.5f1 dev/test project created during
+  `/speckit-implement` to host and compile this package.
 
 ---
 
@@ -32,15 +33,21 @@ each story is independently implementable, testable, and deliverable as an incre
 
 **Purpose**: Project/package initialization.
 
-- [ ] T001 Create the UPM package skeleton (`package.json`, `Editor/`, `Editor.Tests/`, `Data/`
-      folders) at `Packages/com.kdt-hora.quest-avatar-converter/` per plan.md Project Structure
-- [ ] T002 [P] Create `Editor/com.kdt-hora.quest-avatar-converter.Editor.asmdef` referencing
-      `VRC.SDK3.Avatars` and the AAO assembly (research.md §2/§3) as assembly references
-- [ ] T003 [P] Create `Editor.Tests/com.kdt-hora.quest-avatar-converter.Editor.Tests.asmdef`
+- [X] T001 Create the UPM package skeleton (`package.json`, `Editor/`, `Editor.Tests/`, `Data/`
+      folders) at `UnityProject/Packages/com.vrc-rufu.quest-avatar-converter/` per plan.md Project
+      Structure
+- [X] T002 [P] Create `Editor/com.vrc-rufu.quest-avatar-converter.Editor.asmdef` referencing
+      `VRC.SDKBase`, `VRC.SDK3A`, `VRC.SDK3A.Editor`, `VRC.SDK3.Dynamics.PhysBone`, and
+      `com.anatawa12.avatar-optimizer.runtime` (research.md §2/§2b/§3) as assembly references
+- [X] T003 [P] Create `Editor.Tests/com.vrc-rufu.quest-avatar-converter.Editor.Tests.asmdef`
       referencing `UnityEngine.TestRunner`/`UnityEditor.TestRunner` and the Editor asmdef above, per
       Constitution Principle VI (dedicated EditMode test assembly)
-- [ ] T004 [P] Declare package dependencies and version ranges in `package.json` for VRChat SDK3 -
-      Avatars 3.10.4 and Avatar Optimizer 1.9.19 (research.md §1–§3), targeting Unity 2022.3.22f1
+- [X] T004 [P] Declare package dependencies in `package.json` for VRChat SDK3 - Avatars 3.10.5 and
+      Avatar Optimizer 1.9.19 (research.md §1–§3); `nadena.dev.ndmf` 1.14.8 and `com.vrchat.base`
+      3.10.5 are declared as project-level dependencies in `UnityProject/Packages/manifest.json`
+      (git URL / embedded-local respectively) since standard UPM does not read AAO's
+      `vpmDependencies` field (research.md §2b); targeting Unity 2022.3.5f1 locally (2022.3.22f1
+      remains the documented supported-version target, research.md §1)
 
 **Checkpoint**: Package compiles empty; test assembly is discoverable by the Unity Test Runner.
 
@@ -260,7 +267,7 @@ Scenarios are satisfied.
 
 - [ ] T047 [P] Finalize `package.json` / VPM listing metadata (display name, description, Unity
       2022.3.22f1 minimum, VRChat SDK3 - Avatars 3.10.4 and AAO 1.9.19 dependency ranges) at
-      `Packages/com.kdt-hora.quest-avatar-converter/package.json`
+      `Packages/com.vrc-rufu.quest-avatar-converter/package.json`
 - [ ] T048 [P] Confirm AAO's actual `Trace And Optimize` C# class name against the installed AAO
       DLL/source and correct `AAOIntegrator.cs` (T028) if it differs from the assumed name
       (research.md §3)

@@ -21,13 +21,17 @@ Creator Companion / a VPM listing).
 **Language/Version**: C# targeting Unity 2022.3 LTS's supported Roslyn/language version (Unity
 2022.3.22f1 — research.md §1)
 
-**Primary Dependencies**: Unity Editor 2022.3.22f1 (`UnityEditor` / `UnityEngine` APIs,
-`AssetDatabase`), VRChat SDK3 - Avatars 3.10.4 (`VRC.SDK3.Avatars` — for VRC Avatar Descriptor /
-PhysBone / PhysBone Collider component types, research.md §2), Avatar Optimizer ("AAO") 1.9.19
-(`anatawa12/AvatarOptimizer`, VPM-distributed — for the `Trace And Optimize` Avatar Global
-Component this tool adds; exact C# class name is an open pre-implementation verification item, see
-research.md §3). Target (Quest-side) shaders are restricted to VRChat's own `VRChat/Mobile/*`
-family (`Toon Lit`, `Toon Standard`, etc.) — research.md §4.
+**Primary Dependencies**: Unity Editor 2022.3.5f1 (locally available; pinned target remains
+2022.3.22f1, see research.md §1) — `UnityEditor`/`UnityEngine` APIs, `AssetDatabase`. VRChat SDK3 -
+Avatars 3.10.5 + SDK3 - Base 3.10.5 (assemblies `VRC.SDK3A`, `VRC.SDKBase`; PhysBone/PhysBone
+Collider types are in the precompiled `VRC.SDK3.Dynamics.PhysBone` assembly bundled inside
+SDK3-Base — research.md §2). `nadena.dev.ndmf` 1.14.8, a transitive dependency of AAO discovered
+during implementation (research.md §2b). Avatar Optimizer ("AAO") 1.9.19
+(`anatawa12/AvatarOptimizer`; assembly `com.anatawa12.avatar-optimizer.runtime`; the
+`Trace And Optimize` component is `Anatawa12.AvatarOptimizer.TraceAndOptimize`, added via
+`AddComponent<T>()` since its constructor is `internal` — research.md §3, verified from source).
+Target (Quest-side) shaders are restricted to VRChat's own `VRChat/Mobile/*` family (`Toon Lit`,
+`Toon Standard`, etc.) — research.md §4.
 
 **Storage**: N/A — all state is Unity `Asset` files on disk (Prefabs, Materials, Textures) plus an
 in-memory `ConversionContext` for the duration of a single generation run; no external database.
@@ -102,7 +106,7 @@ specs/001-quest-avatar-converter/
 ### Source Code (repository root)
 
 ```text
-Packages/com.kdt-hora.quest-avatar-converter/     # UPM package (name adjustable; see research.md)
+Packages/com.vrc-rufu.quest-avatar-converter/     # UPM package (name adjustable; see research.md)
 ├── package.json
 ├── Editor/
 │   ├── QuestAvatarConverterWindow.cs              # EditorWindow UI (US1/US2/US3 controls)
@@ -143,9 +147,12 @@ frontend/backend split — this is a local Editor tool, not a client/server appl
 logic lives under `Editor/Pipeline`, `Editor/Materials`, and `Editor/Textures`, split by
 responsibility per Constitution Principle IV; externalized rule data lives under `Data/` as
 ScriptableObject assets per Constitution Principle III; a dedicated `Editor.Tests` assembly holds
-EditMode tests for the Editor-independent core logic per Constitution Principle VI. The exact
-package name/root namespace is a naming placeholder to confirm with the project owner; it does not
-affect the module boundaries above.
+EditMode tests for the Editor-independent core logic per Constitution Principle VI. Package ID:
+`com.vrc-rufu.quest-avatar-converter` (confirmed with the project owner 2026-09-19). A local
+Unity 2022.3.5f1 dev/test project hosting this package (plus VRChat SDK3-Base/Avatars, NDMF, and
+AAO as embedded/git-URL packages so the package can actually compile and run its EditMode tests)
+lives at `UnityProject/` under the repository root — the `Packages/...` path below is therefore
+`UnityProject/Packages/com.vrc-rufu.quest-avatar-converter/` on disk.
 
 ## Complexity Tracking
 

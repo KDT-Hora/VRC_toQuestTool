@@ -21,15 +21,41 @@ constitution) — they are expected to need periodic re-verification as VRChat/U
 
 ## 2. VRChat SDK3 - Avatars version
 
-- **Decision**: Target **SDK3 - Avatars 3.10.4** (Unity 2022.3-based).
-- **Rationale**: Latest release on VRChat's SDK release channel at time of writing; the 3.10.x line
-  added VRChat Dynamics (PhysBones/Contacts/Constraints) improvements directly relevant to FR-016a.
-- **Alternatives considered**: Pinning to the 3.10.0 Dynamics baseline instead of the latest patch
-  — rejected, no reason to pin below latest.
-- **Source**: VRChat SDK release channel / VPM catalog listing for `com.vrchat.avatars`.
-- **Confidence**: Medium — version number came from an aggregated listing, not a directly fetched
-  release page. **Action before final pin**: confirm via a live VCC project.
+- **Decision**: Target **SDK3 - Avatars 3.10.5**, depending on **SDK3 - Base 3.10.5** (its own
+  declared `vpmDependencies`). Both Unity 2022.3-based.
+- **Rationale**: Verified directly against VRChat's live VPM package index
+  (`https://vrchat.github.io/packages/index.json`) on 2026-09-19 — 3.10.5 is the latest non-beta
+  release (3.10.4 was superseded; earlier research using aggregated search results had a
+  now-stale patch number). `com.vrchat.avatars@3.10.5` declares `vpmDependencies:
+  {"com.vrchat.base": "3.10.5"}`.
+- **Alternatives considered**: Pinning to 3.10.4 (superseded) or beta releases (3.10.4-beta.*,
+  3.10.5-beta.*) — rejected, prefer the latest stable.
+- **Source**: `https://vrchat.github.io/packages/index.json` (VRChat's own published VPM index),
+  fetched and parsed directly.
+- **Confidence**: High — directly fetched and parsed, not aggregated-search-derived.
+- **Distribution mechanism note**: VRChat does **not** publish these packages' source in a
+  git-clonable form (the `vrchat/packages` GitHub repo holds only VPM-listing metadata, not package
+  source) — each version is a `.zip` release asset
+  (`https://github.com/vrchat/packages/releases/download/<version>/<package>-<version>.zip`).
+  Without VCC, the reliable install path is: download that zip and extract it as an **embedded
+  local package** under the consuming project's `Packages/<package-name>/` folder (this is what
+  `/speckit-implement` did to stand up the local dev/test project — see plan.md).
 - **Re-verification trigger**: Same cadence as Unity version above.
+
+## 2b. Newly discovered transitive dependency: NDMF
+
+- **Decision**: Add **`nadena.dev.ndmf` 1.14.8** ("Non-Destructive Modular Framework") as an
+  explicit dependency, installed via git URL package reference
+  (`https://github.com/bdunderscore/ndmf.git#1.14.8` — its `package.json` is at the repo root, no
+  `?path=` needed).
+- **Rationale**: AAO's own `package.json` declares `vpmDependencies: {"nadena.dev.ndmf": ">=1.8.0
+  <2.0.0", "com.vrchat.avatars": ">=3.7.0 <3.11.0"}`. Standard Unity Package Manager does not read
+  the VPM-specific `vpmDependencies` field, so this would silently fail to resolve unless added
+  explicitly. `com.vrchat.avatars` 3.10.5 satisfies AAO's avatars range; not previously documented
+  in this research file — added now to prevent a missing-dependency compile error.
+- **Source**: Directly fetched `package.json` from `anatawa12/AvatarOptimizer` (master) and
+  `bdunderscore/ndmf` (tags) on 2026-09-19.
+- **Confidence**: High (directly fetched).
 
 ## 3. Avatar Optimizer (AAO)
 
@@ -42,12 +68,24 @@ constitution) — they are expected to need periodic re-verification as VRChat/U
   Principle VI's assumption that the Editor-facing glue around it (`AAOIntegrator.cs`) stays thin.
 - **Alternatives considered**: None — AAO is the only actively maintained tool for this role in the
   VRChat ecosystem.
-- **Source**: AAO GitHub repository; AAO "Trace And Optimize" reference docs.
-- **Confidence**: Medium-high on version/behavior. **Low on the exact C# class name** — the docs
-  never state it literally. **Open verification item (not a spec-level ambiguity — a pre-coding
-  task):** confirm the exact class name (expected to be `TraceAndOptimize` by GitHub source
-  convention, but unconfirmed) by inspecting the installed AAO package/DLL before implementing
-  `AAOIntegrator.cs`. Track as a `/speckit-tasks` task, not a blocked spec item.
+- **Source**: AAO GitHub repository; AAO "Trace And Optimize" reference docs; directly fetched
+  `Runtime/TraceAndOptimize.cs` and `Runtime/com.anatawa12.avatar-optimizer.runtime.asmdef` at tag
+  `v1.9.19`.
+- **Confidence**: High — verified by reading source directly (2026-09-19, during `/speckit-implement`).
+  **Verified findings (open item closed):**
+  - Class: `Anatawa12.AvatarOptimizer.TraceAndOptimize`, `sealed`, extends `AvatarGlobalComponent`.
+  - Its constructor is `internal` — it cannot be `new`'d from outside AAO's assembly, but
+    `GameObject.AddComponent<TraceAndOptimize>()` works normally (Unity's component instantiation
+    does not go through the public C# constructor path), so `AAOIntegrator.cs` MUST add it via
+    `AddComponent<T>()`, never `new T()`.
+  - Runtime assembly name (for asmdef `references`): `com.anatawa12.avatar-optimizer.runtime`.
+  - AAO's own runtime asmdef declares `precompiledReferences` on `VRC.Dynamics.dll`,
+    `VRC.SDK3.Dynamics.PhysBone.dll`, `VRCSDK3A.dll`, `VRCSDKBase.dll` — confirming PhysBone/PhysBone
+    Collider types are NOT in a separate VPM package (no `com.vrchat.dynamics` package exists in the
+    VPM index); they ship as a precompiled DLL (`VRC.SDK3.Dynamics.PhysBone.dll`, Unity-assembly-name
+    `VRC.SDK3.Dynamics.PhysBone`) bundled inside `com.vrchat.base` at
+    `Runtime/VRCSDK/Plugins/VRC.SDK3.Dynamics.PhysBone.dll`. `PhysBoneValidator.cs` and its tests must
+    reference the `VRC.SDK3.Dynamics.PhysBone` assembly, not `VRC.SDK3A`.
 
 ## 4. Quest-compatible shader landscape
 
@@ -110,9 +148,9 @@ constitution) — they are expected to need periodic re-verification as VRChat/U
 
 ## Open Verification Items Carried Into Tasks (not spec-blocking)
 
-1. Confirm AAO's exact `Trace And Optimize` C# class/type name from the installed package before
-   implementing `AAOIntegrator.cs` (§3).
-2. Reconfirm the exact VRChat SDK3 - Avatars version number (§2) against a live VCC project rather
-   than the aggregated listing used here.
+1. ~~Confirm AAO's exact `Trace And Optimize` C# class/type name~~ — **Resolved 2026-09-19**, see §3.
+2. ~~Reconfirm the exact VRChat SDK3 - Avatars version number~~ — **Resolved 2026-09-19**, see §2
+   (3.10.5, directly fetched from VRChat's own VPM index).
 3. Reconfirm `VRChat/Mobile/Toon Standard` as the intended default target shader (§4) before
-   locking `ConversionSettings` defaults.
+   locking `ConversionSettings` defaults — still based on aggregated search, not a primary source;
+   lower risk since `Toon Lit` remains registered as an alternative either way.
