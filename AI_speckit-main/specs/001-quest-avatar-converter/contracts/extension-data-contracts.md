@@ -70,10 +70,25 @@ struct FlaggedComponentRule
 
 struct PhysBoneThresholds
 {
-    int MaxPhysBoneComponents;        // Per VRChat's published Quest Performance Rank reference.
+    PhysBoneTierThresholds Excellent;   // All four VRChat Quest Performance Rank tiers, since
+    PhysBoneTierThresholds Good;        // PhysBoneValidator (FR-016a) reports WHICH tier an avatar
+    PhysBoneTierThresholds Medium;      // falls into, not just a single pass/fail line
+    PhysBoneTierThresholds Poor;
+    int MaxAffectedTransformsPerComponentHardCap; // REQUIRED. VRChat's hard per-component cap
+                                                   // (research.md §5: 256) — exceeding this strips
+                                                   // the component category at runtime regardless of
+                                                   // rank, so it MUST be surfaced as a distinct,
+                                                   // higher-severity finding from an ordinary rank
+                                                   // downgrade (FR-016a).
+    string SourceCitation;            // REQUIRED. Where these numbers came from (doc/version), for traceability.
+}
+
+struct PhysBoneTierThresholds
+{
+    int MaxPhysBoneComponents;
     int MaxPhysBoneColliders;
     int MaxPhysBoneAffectedTransforms;
-    string SourceCitation;            // REQUIRED. Where these numbers came from (doc/version), for traceability.
+    int MaxPhysBoneCollisionCheckCount;
 }
 ```
 

@@ -151,8 +151,11 @@ User-configured options from the Editor Window (US2).
 | PhysBoneComponentCount | int | |
 | PhysBoneColliderCount | int | |
 | PhysBoneAffectedTransformCount | int | |
-| ThresholdsSource | reference to QuestCompatibilityRules asset | Externalized data (Constitution III), not hard-coded |
-| ResultingRank | enum (VRChat Quest Performance Rank tiers) | |
+| PhysBoneCollisionCheckCount | int | 4th metric in research.md §5's tier table |
+| MaxAffectedTransformsOnAnySingleComponent | int | Compared against the 256 hard cap (research.md §5), independently of tier |
+| ThresholdsSource | reference to QuestCompatibilityRules asset | Externalized data (Constitution III), not hard-coded; see contracts §2's `PhysBoneThresholds` (4 tiers + hard cap) |
+| ResultingRank | enum {Excellent, Good, Medium, Poor} | The best tier whose thresholds are NOT exceeded by any of the 4 counts above |
+| ExceedsHardCap | bool | True if `MaxAffectedTransformsOnAnySingleComponent` > the hard cap — reported as a distinct, higher-severity finding than a rank downgrade (FR-016a) |
 
 ### PerformanceMetrics (FR-015)
 | Field | Type | Notes |
