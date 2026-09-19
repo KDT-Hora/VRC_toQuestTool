@@ -1,0 +1,939 @@
+VRChat Quest対応アバター改変ツール
+仕様整理・問題点・未決定事項
+作成日: 2026-09-19
+
+============================================================
+1. 企画概要
+============================================================
+
+Unity Editor上で動作するVRChatアバター改変支援ツール。
+
+PCプラットフォーム用として作成されたアバターを入力すると、
+PC版を変更せずにQuest/Android向けの派生アバターを自動生成する。
+
+基本方針:
+- PC版アバターは変更しない
+- Quest版を別Assetとして生成する
+- Quest版のMaterial / Textureを専用フォルダへ分離する
+- Shader変換、Texture最適化、AAO追加などを自動化する
+- AAO (Avatar Optimizer) の利用を前提とする
+- 最終的には生成したQuest版アバターをユーザーが確認・調整できるようにする
+
+
+============================================================
+2. 現時点で決定している基本フロー
+============================================================
+
+PC版アバター
+    ↓
+Quest対応ツール
+    ↓
+Quest用フォルダ作成
+    ↓
+アバターを複製
+    ↓
+Hierarchy上にQuest版を配置
+    ↓
+Materialを解析・複製
+    ↓
+Materialが使用するTextureを解析
+    ↓
+TextureをMaterial単位で統合
+    ↓
+Textureサイズを最適化
+    ↓
+選択されたQuest用ShaderへMaterial変換
+    ↓
+Quest版アバターのMaterialを差し替え
+    ↓
+アバターRootへAAO Trace And Optimizeを追加
+    ↓
+Quest版完成
+
+
+============================================================
+3. Quest用フォルダ構成
+============================================================
+
+生成先の基本構成:
+
+Quest/
+├─ Avatar/
+│   └─ Avatar_Quest.prefab
+│
+├─ Materials/
+│   ├─ Q_Material_Body.mat
+│   ├─ Q_Material_Hair.mat
+│   └─ ...
+│
+└─ Textures/
+    ├─ Q_Material_Body.png
+    ├─ Q_Material_Hair.png
+    └─ ...
+
+方針:
+- Quest版専用のAssetを生成する
+- 元PC版のMaterial / Textureは変更しない
+- 実際にアバターから参照されているAssetを中心に処理する
+- 不要なAssetまで無条件にコピーしない
+
+
+============================================================
+4. アバター複製
+============================================================
+
+PC版アバターをQuest版として複製する。
+
+生成後はHierarchy上に、
+
+PC Avatar
+Quest Avatar
+
+のように並べて確認できる状態を想定。
+
+Quest版の配置位置は設定可能にする。
+
+例:
+X = 2.0
+Y = 0.0
+Z = 0.0
+
+検討事項:
+- Prefab Variantを使用するか、完全なPrefabコピーにするか
+- Prefab内の参照をどこまでQuest版Assetへ置換するか
+- Animation / Animator Controller / VRC関連コンポーネントをどう扱うか
+- PC版とQuest版のObject名・構造をどこまで一致させるか
+- 同じアバターを再変換した場合の扱い
+
+
+============================================================
+5. Material処理
+============================================================
+
+PC版Materialを解析し、Quest版Materialを生成する。
+
+基本方針:
+
+PC Material
+    ↓
+Material解析
+    ↓
+Quest Material生成
+    ↓
+選択されたShaderへ変更
+    ↓
+Texture参照をQuest用Textureへ置換
+
+
+Shaderは固定ではなく、ツール上から選択可能にする。
+
+例:
+Shader
+[ VRChat/Mobile/Toon Lit ▼ ]
+
+将来的には複数のQuest対応Shaderを登録できる設計を想定。
+
+
+重要:
+Shader名を変更するだけではなく、
+元ShaderのPropertyと変換先ShaderのPropertyを対応付ける必要がある。
+
+
+============================================================
+6. Shader変換で考える必要があること
+============================================================
+
+Shader変換では以下のようなPropertyを扱う必要がある。
+
+例:
+- Base Color / Main Texture
+- Color
+- Normal Map
+- Emission
+- Mask
+- Metallic
+- Roughness
+- Occlusion
+- その他Shader固有Property
+
+問題:
+元Shaderと変換先ShaderでProperty名・意味・形式が異なる場合がある。
+
+例:
+PC側:
+_MainTex
+
+Quest側:
+_BaseMap
+
+のような違い。
+
+そのため、
+
+ShaderConverter
+    ├─ Source Shader
+    ├─ Target Shader
+    └─ Property Mapping
+
+という仕組みを検討する。
+
+さらに、
+Shaderごとに変換ルールを持つ方式にすると将来的な拡張が容易。
+
+
+============================================================
+7. Texture統合仕様
+============================================================
+
+重要な追加仕様:
+
+「Materialが複数のTextureを使用している場合、
+それらを画像比率を保った形で重ねた一枚の画像として出力して処理する。」
+
+例:
+
+Material_Body
+├─ Body.png
+├─ Tattoo.png
+└─ Dirt.png
+
+↓
+
+Quest_Body.png
+
+つまり、Material単位でTextureを統合する。
+
+全MaterialのTextureを1枚に統合するのではなく、
+基本的にはMaterialごとに統合する。
+
+
+============================================================
+8. Texture Atlas / Texture Merge
+============================================================
+
+内部実装では単純な「Texture Merge」ではなく、
+Texture Atlas Generatorとして設計することを推奨。
+
+例:
+
+入力:
+Body.png
+Hair.png
+Tattoo.png
+
+↓
+
+Texture Atlas
+
+┌────────────────────┐
+│ Body      │ Hair   │
+├───────────┼────────┤
+│ Clothes   │ Tattoo │
+└───────────┴────────┘
+
+ただし、
+同一Materialが複数Textureを参照している場合でも、
+Textureの種類によっては単純に重ねてはいけない。
+
+
+============================================================
+9. Texture種類の分類
+============================================================
+
+最低限、以下の種類を区別する必要がある。
+
+1. Color系
+- Base Color
+- Main Texture
+- Albedo
+- Diffuse
+- Overlay
+
+2. Normal系
+- Normal Map
+
+3. Mask系
+- Mask
+- Metallic
+- Roughness
+- Occlusion
+- その他マスク
+
+4. Emission系
+- Emission Map
+
+重要:
+Color、Normal、Maskなどをすべて同じ画像へ通常のアルファ合成してはいけない。
+
+例:
+BaseColor + Normal + Metallic
+を普通に重ねると意味が壊れる。
+
+そのため、最終ShaderのProperty構成に応じて、
+Color Atlas / Normal Atlas / Mask Atlas / Emission Atlas
+などを別々に生成する設計を検討する。
+
+
+============================================================
+10. Textureのアスペクト比
+============================================================
+
+「画像比率を保った形で重ねる」を基本仕様とする。
+
+例:
+
+Body:
+2048 × 2048
+
+Overlay:
+1024 × 2048
+
+の場合、Overlayを無理に2048×2048へ引き伸ばさない。
+
+元画像のアスペクト比を維持して配置する。
+
+また、TextureのUV Scale / Offsetが設定されている場合、
+単純な画像配置だけでは正しくならない可能性がある。
+
+そのためTexture統合時には、
+
+- Textureサイズ
+- アスペクト比
+- UV Channel
+- Texture Scale
+- Texture Offset
+- MaterialのTexture Property
+- 必要に応じてTiling / Offset
+
+を考慮する必要がある。
+
+
+============================================================
+11. Textureサイズ最適化
+============================================================
+
+PC版Textureは変更しない。
+
+Quest版としてコピーしたTextureを最適化する。
+
+基本方針:
+「最大辺が1024を超えている場合、最大辺を1024まで縮小」
+
+例:
+
+2048 × 2048
+→ 1024 × 1024
+
+4096 × 2048
+→ 1024 × 512
+
+2048 × 1024
+→ 1024 × 512
+
+1024 × 512
+→ そのまま
+
+アスペクト比を維持する。
+
+
+検討事項:
+- PNG / JPGなどの出力形式
+- Alphaを保持するか
+- sRGB設定
+- Normal MapのTexture Import Settings
+- Compression設定
+- Mipmap設定
+- Crunch Compressionの扱い
+- 元TextureのImport Settingsをどこまで引き継ぐか
+
+
+============================================================
+12. AAO
+============================================================
+
+AAO (Avatar Optimizer) を前提とする。
+
+Quest版アバターのRootに、
+
+AAO Trace And Optimize
+
+を追加する。
+
+想定:
+
+Quest Avatar Root
+└─ AAO Trace And Optimize
+
+AAOはQuest対応そのものをすべて行うものではなく、
+アバター構造の最適化を担当するものとして扱う。
+
+ツール側:
+- Shader変換
+- Texture最適化
+- Material最適化
+- Quest用Asset生成
+
+AAO側:
+- Trace And Optimizeによる最適化
+
+という役割分担を基本とする。
+
+
+検討事項:
+- AAOが導入されていない場合のエラー/警告
+- AAOのバージョン差
+- Trace And OptimizeコンポーネントのAPI / SerializedPropertyの扱い
+- AAOによる最適化結果をツール側で取得できるか
+- AAO適用前後のPerformance情報表示
+
+
+============================================================
+13. Quest対応チェック
+============================================================
+
+将来的にQuest対応チェック機能を搭載する。
+
+例:
+
+Quest Compatibility Check
+
+✓ Shader
+✓ Texture
+✓ Material
+✓ AAO
+
+⚠ AudioSource
+⚠ Camera
+⚠ ParticleSystem
+⚠ Constraint
+⚠ その他Mobile制限対象
+
+問題があるObject / Componentを一覧表示し、
+Hierarchy上の対象へ移動できる機能も検討する。
+
+
+============================================================
+14. Performance情報
+============================================================
+
+生成後にQuest版のパフォーマンス情報を表示する。
+
+候補:
+
+- Triangle数
+- Material数
+- Material Slot数
+- Skinned Mesh Renderer数
+- Mesh数
+- Bone数
+- Texture数
+- Texture Memory
+- Particle数
+- PhysBone関連情報
+- その他VRChat Performance Rankに関係する項目
+
+例:
+
+Quest Avatar Result
+
+Triangles       18,532
+Materials           4
+Skinned Meshes      2
+Bones             143
+Textures            8
+Texture Memory    XX MB
+
+各項目について、
+VRChatの現在のPerformance基準と照らして表示することも検討。
+
+
+============================================================
+15. GPU Instancing
+============================================================
+
+Quest用Materialについて、
+GPU Instancingを自動設定するか検討。
+
+基本候補:
+- Enable GPU Instancing = ON
+
+ただし、
+選択したShaderによって設定方法が異なる可能性があるため、
+Shaderごとの対応が必要。
+
+
+============================================================
+16. 実際に参照されているAssetのみ処理
+============================================================
+
+アバターのProjectフォルダ全体をコピーするのではなく、
+アバターから実際に参照されているAssetを解析する。
+
+基本的な参照関係:
+
+Renderer
+    ↓
+Material
+    ↓
+Texture
+
+これを辿って必要なAssetのみQuestフォルダへ生成する。
+
+
+注意:
+Materialからさらに参照されるTexture以外にも、
+Animator / Animation / Script / VRCコンポーネントなどから
+Asset参照が存在する可能性がある。
+
+そのため「必要なAsset」の定義を明確にする必要がある。
+
+
+============================================================
+17. Material / Texture対応表
+============================================================
+
+内部で変換対応表を保持する。
+
+例:
+
+PC Material
+Material_Body
+    ↓
+Quest Material
+Q_Material_Body
+
+PC Texture
+Body.png
+    ↓
+Quest Texture
+Q_Body.png
+
+また、
+同じMaterialが複数Rendererから参照されている場合は、
+Quest版でも同じQuest Materialを共有するのか、
+Rendererごとに分けるのかを明確化する。
+
+基本方針としては、
+元PC Materialが同一ならQuest Materialも共有する方向を検討。
+
+
+============================================================
+18. Renderer処理
+============================================================
+
+Quest版アバター内のRendererについて、
+PC版MaterialからQuest版Materialへ参照を差し替える。
+
+検討事項:
+- SkinnedMeshRenderer
+- MeshRenderer
+- ParticleSystemRenderer
+- TrailRenderer
+- LineRenderer
+- その他Renderer
+
+特にVRChatアバターではSkinnedMeshRendererが中心になる。
+
+
+============================================================
+19. UI案
+============================================================
+
+Unity Editor Window形式。
+
+例:
+
+┌─────────────────────────────────────┐
+│ Quest Avatar Converter              │
+├─────────────────────────────────────┤
+│                                     │
+│ Source Avatar                       │
+│ [ Avatar.prefab              ]      │
+│                                     │
+│ Output                              │
+│ [ Assets/.../Quest/          ]      │
+│                                     │
+│ ───── Avatar ─────────────────────  │
+│                                     │
+│ ☑ Duplicate Avatar                  │
+│ ☑ Place Quest Avatar in Scene       │
+│                                     │
+│ Offset                              │
+│ X [2.0] Y [0.0] Z [0.0]             │
+│                                     │
+│ ───── Material ──────────────────── │
+│                                     │
+│ ☑ Duplicate Materials               │
+│                                     │
+│ Shader                              │
+│ [ VRChat/Mobile/Toon Lit       ▼ ] │
+│                                     │
+│ ☑ Merge Textures                    │
+│                                     │
+│ Merge Mode                          │
+│ [ Material Based               ▼ ]  │
+│                                     │
+│ ───── Texture ───────────────────── │
+│                                     │
+│ ☑ Preserve Aspect Ratio             │
+│ ☑ Resize                            │
+│ Max Size [1024 ▼]                   │
+│                                     │
+│ ───── Optimization ──────────────── │
+│                                     │
+│ ☑ Add AAO Trace And Optimize        │
+│                                     │
+│ [ Preview ]       [ Generate ]      │
+└─────────────────────────────────────┘
+
+
+============================================================
+20. Preview機能
+============================================================
+
+Generate前にMaterial単位で変換結果を確認できる機能を検討。
+
+例:
+
+Material_Body
+
+Original:
+[Body] [Tattoo] [Dirt]
+
+↓
+
+Merged:
+[統合Texture Preview]
+
+Resolution:
+2048 × 2048
+↓
+1024 × 1024
+
+Previewで確認したい項目:
+- 統合後Texture
+- 元Texture
+- Texture配置
+- UV / Scale / Offset
+- 最終解像度
+- Alpha
+- Shader
+- Material Property
+
+
+============================================================
+21. 重要な問題点
+============================================================
+
+【問題1】
+ShaderのPropertyがShaderごとに異なる。
+
+→ ShaderごとのProperty Mappingが必要。
+
+
+【問題2】
+複数Textureを単純に重ねるとNormal/Maskなどが壊れる。
+
+→ Texture種類ごとの分類・統合処理が必要。
+
+
+【問題3】
+TextureごとにUV Scale / Offsetが異なる場合、
+統合後の見た目がずれる。
+
+→ UV情報を考慮したTexture生成が必要。
+
+
+【問題4】
+Textureの解像度が異なる。
+
+→ 統合用の基準解像度・配置アルゴリズムが必要。
+
+
+【問題5】
+Textureのアスペクト比が異なる。
+
+→ アスペクト比を維持した配置が必要。
+
+
+【問題6】
+同じMaterialを複数Rendererが共有する場合がある。
+
+→ Materialの変換結果をキャッシュして共有する必要がある。
+
+
+【問題7】
+PC版のAssetを変更してはいけない。
+
+→ 必ずQuest版Assetを別生成する。
+
+
+【問題8】
+元アバターが複雑な場合、Questで不要なComponentが残る可能性がある。
+
+→ Quest制限チェック機能が必要。
+
+
+【問題9】
+AAOがインストールされていない環境がある。
+
+→ エラーまたは導入案内が必要。
+
+
+【問題10】
+AAOの処理とツール側の処理の順番。
+
+→ どの段階でAAOを追加し、
+どの段階で最終Performance情報を取得するか決定する必要がある。
+
+
+【問題11】
+同じアバターを複数回変換した場合、
+Questフォルダや生成Assetが重複する可能性がある。
+
+→ 再生成・上書き・差分更新の仕様が必要。
+
+
+【問題12】
+Prefab / Animator / Animation / VRCコンポーネントなど、
+Material以外にもAsset参照がある。
+
+→ どこまで複製・変換するかを決める必要がある。
+
+
+============================================================
+22. 今後決める必要がある事項
+============================================================
+
+優先度A: ツールのコア仕様
+
+[ ] 対応するUnityバージョン
+[ ] 対応するVRChat SDKバージョン
+[ ] 対応するAAOバージョン
+[ ] Quest/Android対応Shaderの登録方式
+[ ] Shader Property Mapping仕様
+[ ] Material変換仕様
+[ ] Texture統合アルゴリズム
+[ ] Texture Atlasの配置方式
+[ ] Texture最大サイズ
+[ ] Texture圧縮方式
+[ ] Alpha処理
+[ ] Normal Map統合方式
+[ ] Mask統合方式
+[ ] Emission統合方式
+[ ] UV Scale / Offset対応
+[ ] UV Channel対応
+
+
+優先度B: アバター構造
+
+[ ] Prefab複製方法
+[ ] Prefab Variantを使うか
+[ ] Animation Controllerをどうするか
+[ ] Animation Clipをどうするか
+[ ] VRC Avatar Descriptorをどう扱うか
+[ ] PhysBoneをどう扱うか
+[ ] Constraintをどう扱うか
+[ ] ParticleSystemをどう扱うか
+[ ] AudioSourceをどう扱うか
+[ ] Cameraをどう扱うか
+[ ] Quest非対応Componentを削除するか警告だけにするか
+
+
+優先度C: UX
+
+[ ] Generate前Preview
+[ ] Quest Compatibility Check
+[ ] Performance表示
+[ ] エラー一覧
+[ ] Warning一覧
+[ ] Hierarchy上の問題箇所へ移動
+[ ] Undo対応
+[ ] 再生成対応
+[ ] 上書き確認
+[ ] ログ表示
+
+
+============================================================
+23. 推奨する内部アーキテクチャ
+============================================================
+
+以下のように機能を分離する。
+
+QuestAvatarConverter
+│
+├─ AvatarDuplicator
+│
+├─ AssetResolver
+│
+├─ MaterialConverter
+│   └─ ShaderPropertyMapper
+│
+├─ TextureAnalyzer
+│
+├─ TextureAtlasGenerator
+│
+├─ TextureResizer
+│
+├─ RendererMaterialReplacer
+│
+├─ AAOIntegrator
+│
+├─ QuestCompatibilityChecker
+│
+├─ PerformanceAnalyzer
+│
+└─ ConversionReport
+
+
+MaterialConverterとTextureAtlasGeneratorを分離することで、
+Shader対応を増やしてもTexture処理を再利用できる。
+
+また、Shaderごとの変換ルールを独立させる。
+
+例:
+
+IShaderConversionRule
+├─ ToonLitConversionRule
+├─ ToonStandardConversionRule
+└─ CustomShaderConversionRule
+
+
+============================================================
+24. 基本的な変換データ構造案
+============================================================
+
+ConversionContext
+
+- SourceAvatar
+- QuestAvatar
+- OutputRoot
+- MaterialMap
+- TextureMap
+- Settings
+- ConversionLog
+
+MaterialMap:
+
+Source Material
+    ↓
+Generated Quest Material
+
+TextureMap:
+
+Source Texture
+    ↓
+Generated Quest Texture
+
+これにより、
+同じAssetを何度も生成することを防ぐ。
+
+
+============================================================
+25. 変換処理の推奨順序
+============================================================
+
+1. PC Avatar選択
+2. 入力チェック
+3. AAO導入確認
+4. 出力先決定
+5. Questフォルダ生成
+6. Avatar複製
+7. Avatar内Renderer収集
+8. Material収集
+9. MaterialごとのTexture解析
+10. Texture種類判定
+11. Texture Atlas生成
+12. Textureサイズ最適化
+13. Quest Material生成
+14. Shader変換
+15. Texture参照差し替え
+16. RendererへQuest Material設定
+17. AAO Trace And Optimize追加
+18. Quest Compatibility Check
+19. Performance情報解析
+20. Conversion Report表示
+21. 完了
+
+
+============================================================
+26. 最終的なツールの目的
+============================================================
+
+このツールは、
+
+「PC版アバターを壊さず、
+Quest用の軽量化された派生アバターを自動生成する」
+
+ことを目的とする。
+
+単純なShader変更ツールではなく、
+
+- Asset分離
+- Material変換
+- Texture統合
+- Textureサイズ削減
+- Shader変換
+- AAOによる最適化
+- Quest制限チェック
+- Performance確認
+
+までを一連のワークフローとして自動化する。
+
+
+============================================================
+27. 現段階で特に先に仕様を固めるべき部分
+============================================================
+
+最優先で詳細設計するべきなのは以下。
+
+1. Texture統合仕様
+   - 何を重ねるのか
+   - 何を別Textureにするのか
+   - UVをどう処理するのか
+   - Atlasの配置方法
+   - Alphaをどう扱うか
+
+2. Shader変換仕様
+   - 対応Shader
+   - Source Property
+   - Target Property
+   - Property Mapping
+   - Texture Propertyの種類
+
+3. Avatar複製仕様
+   - Prefab
+   - Animation
+   - VRC Avatar Descriptor
+   - Component
+   - Asset参照
+
+4. Quest非対応要素への対応
+   - 自動削除
+   - 警告
+   - ユーザー選択
+
+5. 再生成仕様
+   - 新規生成
+   - 上書き
+   - 更新
+   - Quest版削除・再生成
+
+
+============================================================
+28. 注意
+============================================================
+
+VRChatおよびUnity/AAOの仕様は更新される可能性がある。
+
+そのため、
+Quest制限値・対応Shader・Performance基準・AAO APIなどを
+コードへ直接大量に固定するのではなく、
+可能な範囲で設定・変換ルールとして分離する。
+
+また、
+「Quest対応できること」と
+「Quest Performance Rankを上げられること」は同一ではない。
+
+本ツールでは、
+変換・最適化・チェックを分けて扱うことを基本とする。
