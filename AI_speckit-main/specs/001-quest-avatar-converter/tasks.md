@@ -29,6 +29,30 @@ each story is independently implementable, testable, and deliverable as an incre
 
 ---
 
+## ⏭️ Resume point (next session)
+
+Setup (T001-T004) is done but its own checkpoint — "package compiles empty; test assembly is
+discoverable by the Unity Test Runner" — has **not yet been verified**. A verification run was
+started and then intentionally cancelled mid-run this session (not a failure, just stopped early to
+end the session cleanly) and `UnityProject/Temp/UnityLockfile` was removed so the next launch isn't
+blocked by a stale lock.
+
+**Before starting T005**, run this first and confirm it completes with no compile errors:
+
+```powershell
+$env:PATH += ";C:\Users\com\AppData\Local\Unity\bin"
+unity test "C:\Users\com\Downloads\toQuestTool\UnityProject" --editor-version 2022.3.5f1 --mode EditMode --format json --timeout 600
+```
+
+This is the first real Editor import/compile of this project (VRChat SDK3-Base/Avatars are large
+packages), so expect the first run to take several minutes. If `unity` isn't found, re-run the
+install step from `unity-cli` skill's beta-channel installer (see this session's transcript) — the
+binary lands at `C:\Users\com\AppData\Local\Unity\bin\unity.exe`, not yet on PATH by default.
+If it fails, fix the reported compile error(s) before proceeding to T005 — do not implement new
+pipeline code on top of an unverified empty-package compile.
+
+---
+
 ## Phase 1: Setup
 
 **Purpose**: Project/package initialization.
