@@ -1,0 +1,40 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6ec4de786b44f654c9e798d86ee22fc7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  flaggedComponents: []
+  physBoneLimits:
+    Excellent:
+      MaxPhysBoneComponents: 0
+      MaxPhysBoneColliders: 0
+      MaxPhysBoneAffectedTransforms: 0
+      MaxPhysBoneCollisionCheckCount: 0
+    Good:
+      MaxPhysBoneComponents: 4
+      MaxPhysBoneColliders: 4
+      MaxPhysBoneAffectedTransforms: 16
+      MaxPhysBoneCollisionCheckCount: 16
+    Medium:
+      MaxPhysBoneComponents: 6
+      MaxPhysBoneColliders: 8
+      MaxPhysBoneAffectedTransforms: 32
+      MaxPhysBoneCollisionCheckCount: 32
+    Poor:
+      MaxPhysBoneComponents: 8
+      MaxPhysBoneColliders: 16
+      MaxPhysBoneAffectedTransforms: 64
+      MaxPhysBoneCollisionCheckCount: 64
+    MaxAffectedTransformsPerComponentHardCap: 256
+    SourceCitation: VRChat Creation docs -- "Performance Ranks" page and "PhysBones"
+      page (Quest/mobile-specific thresholds); see research.md Phase 0 Research section
+      5, verified against VRChat's published tables on 2026-09-19.

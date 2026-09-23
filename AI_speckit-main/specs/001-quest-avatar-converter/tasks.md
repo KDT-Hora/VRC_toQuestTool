@@ -37,12 +37,26 @@ against Unity **2022.3.22f1** (7/7 tests passed — VRChat SDK's own EditMode te
 package's own `Editor.Tests` assembly is still empty at this point, populated starting T005+).
 
 Note for future clones/machines: this git package (`com.anatawa12.avatar-optimizer`, resolved via
-git URL in `Packages/manifest.json`) ships internal `csc.rsp`/`.ruleset` files as **symlinks**. If
-Windows Developer Mode is off or `core.symlinks` is `false` (global or repo-local), git checks
-these out as plain text files containing the link target instead of real symlinks, which Unity
-then fails to parse (`CS2001`/`CS8035` in compile errors). Fix: enable Windows Developer Mode,
-`git config --global core.symlinks true` (and repo-local, if overridden), delete the affected
-package's folder under `UnityProject/Library/PackageCache/`, and let Unity re-resolve it.
+git URL in `Packages/manifest.json`) ships internal `csc.rsp`/`.ruleset` files as **symlinks**,
+which causes compile errors (`CS2001`/`CS8035`, e.g. "Source file '...\.csc.rsp.nullsafe' could
+not be found" / "Error reading ruleset file ... Data at the root level is invalid") if they don't
+survive Unity's package resolution intact.
+
+Root cause turned out to be two layered issues, discovered in this order:
+1. With Windows Developer Mode off or `core.symlinks=false`, git checks these out as plain text
+   files containing the link *target path* instead of real symlinks.
+2. **Even after fixing (1)** — Developer Mode on, `core.symlinks=true` globally and repo-local —
+   the symlinked files still came out **missing entirely**. Root cause: Unity's own internal git
+   package resolver does not reliably create real Windows symlinks, independent of the system git
+   config (verified: a plain `git clone` of the same repo with the system `git.exe` correctly
+   creates real symlinks; only Unity's resolver drops them).
+
+Fix for (2) — the one that actually matters once Developer Mode is on — is scripted:
+`UnityProject/Scripts/fix-avatar-optimizer-symlinks.ps1`. It clones AAO fresh with the system git
+(which handles the symlinks correctly) and copies the resolved file content over the
+missing/broken paths under `Library/PackageCache/com.anatawa12.avatar-optimizer@*/`. Re-run it any
+time this specific compile error reappears (e.g. after deleting `Library/PackageCache` or on a
+fresh clone/machine).
 
 Next step: **T005**.
 
@@ -80,38 +94,75 @@ UI is a thin layer on top of this. No user-story phase can begin until this phas
 **⚠️ CRITICAL**: This phase implements Constitution Principles I–VI directly; do not let any task
 here reach into `UnityEditor` UI code.
 
-- [ ] T005 [P] Define `ConversionContext`, `ConversionSettings`, `ConversionLogEntry` in
+- [X] T005 [P] Define `ConversionContext`, `ConversionSettings`, `ConversionLogEntry` in
       `Editor/Pipeline/ConversionContext.cs` exactly per data-model.md's "Core Run-Scoped Entities"
       table — `MaterialMap` MUST be keyed by `PCMaterial` (one entry per distinct source Material,
       enforcing FR-011 sharing by construction) and `TextureMap` MUST be keyed by
-      `(PCMaterial, TextureClassification)` (enforcing FR-007/FR-008 per-Material-per-type scoping)
-- [ ] T006 [P] Define the Avatar/Renderer/Material/Texture domain types (`PCAvatar`, `QuestAvatar`,
+      `(PCMaterial, TextureClassification)` (enforcing FR-007/FR-008 per-Material-per-type scoping).
+      Also defines `CompatibilityFinding`/`PhysBoneMetrics`/`PerformanceMetrics` (data-model.md's
+      "Compatibility & Performance Entities") in the same file, since ConversionContext references
+      them directly; the logic that *populates* them is still Phase 5 (T039-T042).
+- [X] T006 [P] Define the Avatar/Renderer/Material/Texture domain types (`PCAvatar`, `QuestAvatar`,
       `RendererRef`, `PCMaterial`, `QuestMaterial`, `PCTexture`, `QuestTexture`, `MaterialProperty`,
       `TextureClassification` enum, `AtlasLayout`, `AtlasPlacement`) in
       `Editor/Pipeline/DomainTypes.cs` per data-model.md's "Avatar & Renderer Entities" / "Material &
       Shader Entities" / "Texture Entities" tables
-- [ ] T007 [P] Implement the `ShaderConversionRuleSet`/`PropertyMapping` ScriptableObject schema in
-      `Editor/Materials/IShaderConversionRule.cs` enforcing contracts/extension-data-contracts.md §1
-      invariants verbatim: `TargetShader` MUST be one of VRChat's own `VRChat/Mobile/*` shaders (load
-      fails otherwise, research.md §4); `SourceShader`+`TargetShader` pairs MUST be unique across
-      loaded assets (load-time error, not silent pick-one); unresolvable `SourcePropertyName`
-      entries MUST be reported as a load-time warning
-- [ ] T008 [P] [Tests] EditMode tests for the T007 loader invariants (duplicate pair rejected,
+- [X] T007 [P] Implement the `ShaderConversionRuleSet`/`PropertyMapping` ScriptableObject schema in
+      `Editor/Materials/ShaderConversionRuleSet.cs` (+ loader in `ShaderConversionRuleLoader.cs` —
+      **deviates from this task's originally-planned single file
+      `Editor/Materials/IShaderConversionRule.cs`**: a real Unity bug was hit and fixed during
+      implementation, see the "Implementation note" below) enforcing
+      contracts/extension-data-contracts.md §1 invariants verbatim: `TargetShader` MUST be one of
+      VRChat's own `VRChat/Mobile/*` shaders (load fails otherwise, research.md §4);
+      `SourceShader`+`TargetShader` pairs MUST be unique across loaded assets (load-time error, not
+      silent pick-one); unresolvable `SourcePropertyName` entries MUST be reported as a load-time
+      warning
+- [X] T008 [P] [Tests] EditMode tests for the T007 loader invariants (duplicate pair rejected,
       non-`VRChat/Mobile/*` target rejected, unresolved source property warned) in
       `Editor.Tests/ShaderConversionRuleLoaderTests.cs`
-- [ ] T009 [P] Author default `ShaderConversionRuleSet` assets targeting `VRChat/Mobile/Toon Lit`
+- [X] T009 [P] Author default `ShaderConversionRuleSet` assets targeting `VRChat/Mobile/Toon Lit`
       and `VRChat/Mobile/Toon Standard` (research.md §4) under `Data/ShaderConversionRules/`
-- [ ] T010 [P] Implement the `QuestCompatibilityRules` ScriptableObject schema
+      (`Standard_To_ToonLit.asset`, `Standard_To_ToonStandard.asset`; PC-side source shader is
+      Unity's built-in `Standard`, the practical universal-default baseline — additional
+      per-source-shader rules, e.g. for Poiyomi/lilToon, are added the same way without code
+      changes per Constitution III)
+- [X] T010 [P] Implement the `QuestCompatibilityRules` ScriptableObject schema
       (`FlaggedComponentRule[]`, `PhysBoneThresholds` with a REQUIRED non-empty `SourceCitation`) in
       `Editor/Pipeline/QuestCompatibilityRules.cs` enforcing contracts §2 invariants verbatim
-- [ ] T011 [P] [Tests] EditMode tests for the T010 loader invariants (unresolved
+- [X] T011 [P] [Tests] EditMode tests for the T010 loader invariants (unresolved
       `ComponentTypeName` warned, missing `SourceCitation` treated as a rule-authoring error) in
       `Editor.Tests/QuestCompatibilityRulesLoaderTests.cs`
-- [ ] T012 [P] Author the default `QuestCompatibilityRules` asset with VRChat's published Quest
+- [X] T012 [P] Author the default `QuestCompatibilityRules` asset with VRChat's published Quest
       PhysBone thresholds (research.md §5 table: 0/4/6/8 components, 0/16/32/64 affected transforms,
       0/4/8/16 colliders, 0/16/32/64 collision checks at Excellent/Good/Medium/Poor) plus the hard
       256-affected-transform-per-component cap, citing the source page, under
-      `Data/QuestCompatibilityRules/`
+      `Data/QuestCompatibilityRules/` (`DefaultQuestCompatibilityRules.asset`; `FlaggedComponents`
+      shipped empty — this task only specifies the PhysBone table, and FlaggedComponentRule entries
+      are Inspector-editable per-project data per Constitution III, not something to invent
+      unsourced defaults for)
+
+**Implementation note (T007/T009): a real Unity ScriptableObject-serialization bug, not a
+process/environment issue.** Authoring the two default `ShaderConversionRuleSet` assets initially
+failed silently — `AssetDatabase.LoadAssetAtPath` returned `null` for both, with the Editor log
+showing `'PropertyMapping' is missing the class attribute 'ExtensionOfNativeClass'!` and the
+generated asset YAML showing a broken `m_Script: {fileID: 0}` (no GUID) instead of a real script
+reference. Root cause: the original `Editor/Materials/IShaderConversionRule.cs` held multiple
+types (`PropertyMapping`, `ShaderConversionRuleSet`, `ShaderConversionRuleLoadResult`,
+`ShaderConversionRuleLoader`) and its filename matched **none** of them — Unity's MonoScript↔GUID
+reverse lookup for a ScriptableObject asset is unreliable when the declaring file's name doesn't
+match its main type. `Editor/Pipeline/QuestCompatibilityRules.cs` (filename matches its main type)
+serialized correctly from the start, which is what pointed at the real cause. Fix: split into
+`ShaderConversionRuleSet.cs` (schema types) and `ShaderConversionRuleLoader.cs` (loader), each
+filename matching its main type — **every future file introducing a
+`ScriptableObject`/`MonoBehaviour`-derived type MUST follow this same one-file-one-matching-name
+rule**, regardless of what filename an earlier task description suggested. The two default assets
+were authored via a small one-off Editor utility
+(`Editor/Tools/DefaultRuleAssetAuthoringTool.cs`, run once via
+`unity run ... -executeMethod VrcRufu.QuestAvatarConverter.Materials.DefaultRuleAssetAuthoringTool.Run`)
+rather than hand-written asset YAML, since letting Unity's own serializer produce the file is what
+surfaced (and let us confirm the fix for) this bug — hand-authored YAML would have LOOKED valid
+while hiding the same defect. Regression coverage: `Editor.Tests/DefaultRuleAssetsTests.cs` loads
+both default assets via `AssetDatabase` and asserts their data round-tripped correctly.
 - [ ] T013 Implement `AssetResolver` in `Editor/Pipeline/AssetResolver.cs`: traverse only each
       Renderer's static `sharedMaterial`(s) → Material → Texture at conversion time (FR-003);
       Animator/Animation-Clip-driven material/texture swaps MUST NOT be discovered (out of scope

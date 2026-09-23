@@ -22,6 +22,15 @@ Avatar Optimizer (`com.anatawa12.avatar-optimizer`) and NDMF (`nadena.dev.ndmf`)
 (MIT) and resolve automatically via their git URL entries in `Packages/manifest.json` the first
 time the project opens (or via `unity test` / `unity run`) — no manual step needed for those.
 
+**If you see compile errors mentioning `.csc.rsp.nullsafe` or an invalid `AvatarOptimizer.ruleset`**,
+AAO's internal symlinked files didn't survive package resolution (a Unity-on-Windows quirk, not a
+project bug — see `specs/001-quest-avatar-converter/tasks.md`'s "Setup checkpoint verified" note
+for the full root cause). Fix:
+
+```powershell
+./Scripts/fix-avatar-optimizer-symlinks.ps1
+```
+
 ## Running EditMode tests
 
 ```powershell
