@@ -129,7 +129,7 @@ namespace VrcRufu.QuestAvatarConverter.Pipeline
 
                 foreach (var componentRule in rules.FlaggedComponents)
                 {
-                    if (!ResolvesToComponentType(componentRule.ComponentTypeName))
+                    if (ComponentTypeResolver.Resolve(componentRule.ComponentTypeName) == null)
                     {
                         warnings.Add(
                             $"{label}: FlaggedComponentRule.ComponentTypeName '{componentRule.ComponentTypeName}' " +
@@ -152,31 +152,6 @@ namespace VrcRufu.QuestAvatarConverter.Pipeline
             }
 
             return new QuestCompatibilityRulesLoadResult(valid, errors, warnings);
-        }
-
-        private static bool ResolvesToComponentType(string componentTypeName)
-        {
-            if (string.IsNullOrEmpty(componentTypeName))
-            {
-                return false;
-            }
-
-            var type = Type.GetType(componentTypeName);
-            if (type == null)
-            {
-                // A bare/partial type name (no assembly qualification) won't resolve via
-                // Type.GetType alone — fall back to scanning loaded assemblies.
-                foreach (var assembly in AppDomain.CurrentDomain.GetAssemblies())
-                {
-                    type = assembly.GetType(componentTypeName);
-                    if (type != null)
-                    {
-                        break;
-                    }
-                }
-            }
-
-            return type != null && typeof(Component).IsAssignableFrom(type);
         }
     }
 }

@@ -364,37 +364,78 @@ individually flagged objects.
 
 ### Implementation for User Story 3
 
-- [ ] T039 [P] [US3] Implement `PerformanceAnalyzer` in `Editor/Pipeline/PerformanceAnalyzer.cs`:
+- [X] T039 [P] [US3] Implement `PerformanceAnalyzer` in `Editor/Pipeline/PerformanceAnalyzer.cs`:
       compute triangle count, Material count, SkinnedMeshRenderer count, bone count, Texture count,
-      and estimated Texture memory for the generated Quest avatar (FR-015)
-- [ ] T040 [P] [US3] Implement the `QuestCompatibilityChecker` detection pass in
+      and estimated Texture memory for the generated Quest avatar (FR-015). Delegates the actual
+      measurement to VRChat SDK's own official `AvatarPerformance.CalculatePerformanceStats` (same
+      calculator the SDK Control Panel uses) rather than re-deriving VRChat-specific counting rules
+      by hand — verified its real signatures via reflection first (see T041 note), since neither is
+      documented in source under `Packages/com.vrchat.base` (both ship precompiled).
+- [X] T040 [P] [US3] Implement the `QuestCompatibilityChecker` detection pass in
       `Editor/Pipeline/QuestCompatibilityChecker.cs`: scan the Quest avatar against
       `QuestCompatibilityRules.FlaggedComponents` (T010/T012) and populate one `CompatibilityFinding`
-      per flagged object — never aggregate-only (FR-016)
-- [ ] T041 [P] [US3] Implement `PhysBoneValidator` in `Editor/Pipeline/PhysBoneValidator.cs`:
+      per flagged object — never aggregate-only (FR-016). Component-type resolution shares
+      `Editor/Pipeline/ComponentTypeResolver.cs`, extracted from `QuestCompatibilityRulesLoader`
+      (T010) so both use identical resolution semantics.
+- [X] T041 [P] [US3] Implement `PhysBoneValidator` in `Editor/Pipeline/PhysBoneValidator.cs`:
       count PhysBone components / PhysBone Colliders / PhysBone-affected transforms and compare
       against `QuestCompatibilityRules.PhysBoneLimits` (research.md §5), reporting the resulting
       Quest Performance Rank tier AND surfacing the hard 256-affected-transform-per-component cap as
-      a distinct, higher-severity finding from an ordinary rank downgrade (FR-016a)
-- [ ] T042 [P] [Tests] EditMode tests for `PhysBoneValidator` threshold evaluation (each rank tier
+      a distinct, higher-severity finding from an ordinary rank downgrade (FR-016a). The four
+      avatar-wide aggregate counts reuse VRChat SDK's own `AvatarPerformanceStats.physBone`
+      (component/transform/collider/collisionCheck counts — confirmed via a one-off reflection dump
+      against the precompiled `VRCSDKBase`/`VRC.SDK3.Dynamics.PhysBone` assemblies, since neither
+      type ships as readable source; the dump tool was deleted after confirming the exact
+      constructor/field signatures). The one count that calculator does NOT provide — a
+      *per-component* max-affected-transforms breakdown, needed for the hard cap, which applies per
+      component not per avatar — is approximated by walking each `VRCPhysBone`'s own
+      `rootTransform` hierarchy (excluding `ignoreTransforms` subtrees); documented as an
+      approximation (doesn't replicate `multiChildType` branching) in the file's remarks.
+- [X] T042 [P] [Tests] EditMode tests for `PhysBoneValidator` threshold evaluation (each rank tier
       boundary from research.md §5's table, plus the 256-transform hard-cap case) in
-      `Editor.Tests/PhysBoneValidatorTests.cs`
-- [ ] T043 [US3] Implement `ConversionReport` in `Editor/Pipeline/ConversionReport.cs`: aggregate
+      `Editor.Tests/PhysBoneValidatorTests.cs`. `EvaluateRank`/`ComputeExceedsHardCap` are
+      `internal` specifically so these tests can call them directly against hand-built
+      `PhysBoneMetrics`/`PhysBoneThresholds` fixtures, without needing real `VRCPhysBone` components
+      or a live `AvatarPerformance` call (Constitution VI).
+- [X] T043 [US3] Implement `ConversionReport` in `Editor/Pipeline/ConversionReport.cs`: aggregate
       `ConversionContext.Log`, `PerformanceMetrics`, and `CompatibilityFindings` into a single
-      displayable report (FR-019)
-- [ ] T044 [US3] Add a Report panel to `QuestAvatarConverterWindow` displaying `PerformanceMetrics`
+      displayable report (FR-019). `ConversionReport.Analyze` is the actual orchestration point —
+      runs PerformanceAnalyzer/QuestCompatibilityChecker/PhysBoneValidator against the generated
+      Quest avatar and writes their results back into `ConversionContext`'s own canonical fields, so
+      that data-model.md's ConversionContext.CompatibilityFindings stays the single source of truth
+      the Report panel (T044) reads from. A hard-cap violation from PhysBoneValidator is folded in
+      as its own `CompatibilityFinding` (`BlockingIfUnaddressed` severity) rather than staying a
+      separate report-only number, so FR-016a's "distinct, higher-severity finding" goes through the
+      same individually-listed, per-item Remove/Keep review as any other flagged object (FR-021).
+- [X] T044 [US3] Add a Report panel to `QuestAvatarConverterWindow` displaying `PerformanceMetrics`
       and each `CompatibilityFinding` individually with per-item Remove/Keep controls — selecting
       neither MUST leave the object untouched (`UserDecision` defaults to `Undecided`, FR-021
-      forbids any auto-remove) in `Editor/QuestAvatarConverterWindow.cs`
-- [ ] T045 [US3] Add a Preview panel to `QuestAvatarConverterWindow` that runs
+      forbids any auto-remove) in `Editor/QuestAvatarConverterWindow.cs`. Remove/Keep are two-step:
+      clicking a finding's Remove/Keep button only sets its `UserDecision`; nothing is actually
+      destroyed until a separate "Apply Decisions" button runs, which acts *only* on
+      `Remove`-decided items (never on `Undecided`/`Keep`) — an explicit, reviewable batch action
+      rather than instant deletion on click.
+- [X] T045 [US3] Add a Preview panel to `QuestAvatarConverterWindow` that runs
       `TextureAtlasGenerator`/`TextureResizer`/`TextureTypeClassifier` in a dry-run mode for one
       selected Material and displays source textures, merged result, and final resolution without
       calling `TextureAssetWriter` or writing anything to disk (FR-017) in
-      `Editor/QuestAvatarConverterWindow.cs`
-- [ ] T046 [US3] Manual validation: run quickstart.md Scenarios 5 and 6
+      `Editor/QuestAvatarConverterWindow.cs`. Shows the actual composited/resized merge result (not
+      just its dimensions) via a new `TextureAssetWriter.CompositeAndResize` — the in-memory-only
+      half of `Write` (compositing + resizing), extracted so the disk-writing PNG-encode/
+      AssetDatabase-import half stays exclusive to the real generation path; the preview's
+      in-memory `Texture2D` is destroyed on the next preview run and on window close (`OnDisable`).
+- [X] T046 [US3] Manual validation: run quickstart.md Scenarios 5 and 6 — verified headlessly (same
+      pattern/caveat as T033/T038, temporary `-executeMethod` tool deleted after use): Scenario 5
+      confirmed a 2-source Mask-classification merge preview composites and resizes correctly while
+      the project's Texture2D asset count stays unchanged (zero disk writes); Scenario 6 confirmed a
+      fixture `AudioSource` was listed as its own `CompatibilityFinding` (defaulting to
+      `Undecided`, still present on the generated prefab afterward — no auto-removal) alongside a
+      3-Transform PhysBone chain correctly counted and ranked (`Good`, per research.md §5's table).
+      Same interactive-GUI caveat as T033/T038 applies.
 
-**Checkpoint**: All three user stories are independently functional; the full spec's Acceptance
-Scenarios are satisfied.
+**Checkpoint**: All three user stories are functionally complete and headlessly verified; the full
+spec's Acceptance Scenarios are satisfied except for actually being clicked through in a live,
+interactive Unity Editor session (see the T033 note — still outstanding across US1/US2/US3 alike).
 
 ---
 

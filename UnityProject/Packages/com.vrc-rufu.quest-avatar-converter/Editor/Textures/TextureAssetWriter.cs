@@ -26,16 +26,8 @@ namespace VrcRufu.QuestAvatarConverter.Textures
         /// which sources feed this classification).</remarks>
         public static QuestTexture Write(QuestTexture questTexture, AtlasLayout layout, int maxSize, string texturesFolder, string baseFileName)
         {
-            var (targetWidth, targetHeight) = TextureResizer.ComputeTargetSize(layout.Width, layout.Height, maxSize);
             var sourceHasAlpha = questTexture.SourcePCTextures.Any(t => t.HasAlpha);
-
-            var composed = Composite(layout);
-            var final = composed;
-            if (targetWidth != layout.Width || targetHeight != layout.Height)
-            {
-                final = Resize(composed, targetWidth, targetHeight);
-                Object.DestroyImmediate(composed);
-            }
+            var final = CompositeAndResize(layout, maxSize, out var targetWidth, out var targetHeight);
 
             var pngBytes = final.EncodeToPNG();
             Object.DestroyImmediate(final);
@@ -59,6 +51,27 @@ namespace VrcRufu.QuestAvatarConverter.Textures
             questTexture.Layout = questTexture.SourcePCTextures.Count > 1 ? layout : null;
             questTexture.FinalSize = (targetWidth, targetHeight);
             return questTexture;
+        }
+
+        /// <summary>Composites <paramref name="layout"/>'s placements and resizes the result to
+        /// <paramref name="maxSize"/> (<see cref="TextureResizer"/> math), entirely in memory —
+        /// never writes to disk or touches AssetDatabase. Shared by <see cref="Write"/> (which
+        /// encodes/persists the result) and the Preview panel (T045, FR-017: "without ... writing
+        /// anything to disk"), so both use the exact same compositing code. Caller owns the
+        /// returned Texture2D and must destroy it.</summary>
+        internal static Texture2D CompositeAndResize(AtlasLayout layout, int maxSize, out int targetWidth, out int targetHeight)
+        {
+            (targetWidth, targetHeight) = TextureResizer.ComputeTargetSize(layout.Width, layout.Height, maxSize);
+
+            var composed = Composite(layout);
+            if (targetWidth == layout.Width && targetHeight == layout.Height)
+            {
+                return composed;
+            }
+
+            var resized = Resize(composed, targetWidth, targetHeight);
+            Object.DestroyImmediate(composed);
+            return resized;
         }
 
         private static Texture2D Composite(AtlasLayout layout)

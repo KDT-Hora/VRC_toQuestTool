@@ -4,15 +4,18 @@ using UnityEditor;
 using UnityEngine;
 using VrcRufu.QuestAvatarConverter.Materials;
 using VrcRufu.QuestAvatarConverter.Pipeline;
+using VrcRufu.QuestAvatarConverter.Textures;
 
 namespace VrcRufu.QuestAvatarConverter
 {
     /// <summary>
-    /// T030-T037 (User Stories 1 &amp; 2): Source Avatar field, Generate button, and the exposed
+    /// T030-T045 (User Stories 1, 2 &amp; 3): Source Avatar field, Generate button, the exposed
     /// settings controls (target shader, placement offset, max texture size, and the Merge
-    /// Textures / Resize Textures / Add AAO Component toggles — FR-005/FR-004/FR-009/FR-018),
-    /// wired to <see cref="ConversionPipeline"/> (T029). US3 (Phase 5) adds the Preview/Report
-    /// panels this window doesn't have yet.
+    /// Textures / Resize Textures / Add AAO Component toggles — FR-005/FR-004/FR-009/FR-018), a
+    /// post-generation Report panel (performance metrics + individually-listed, per-item
+    /// Remove/Keep compatibility findings — FR-015/FR-016/FR-016a/FR-019/FR-021), and a
+    /// no-disk-writes Material Preview panel (FR-017) — all wired to the pipeline built in
+    /// Phase 2.
     /// </summary>
     /// <remarks>
     /// FR-018 names four independent optional steps, but a "Duplicate Avatar" toggle was
@@ -35,16 +38,34 @@ namespace VrcRufu.QuestAvatarConverter
 
         private GameObject _sourceAvatar;
         private ConversionContext _lastResult;
+        private ConversionReport.Report _lastReport;
 
         private List<ShaderConversionRuleSet> _availableRules = new List<ShaderConversionRuleSet>();
         private string[] _ruleDisplayNames = System.Array.Empty<string>();
         private int _selectedRuleIndex;
+
+        private List<QuestCompatibilityRules> _availableCompatibilityRules = new List<QuestCompatibilityRules>();
 
         private Vector3 _placementOffset = DefaultPlacementOffset;
         private int _maxTextureSize = 1024;
         private bool _mergeTexturesEnabled = true;
         private bool _resizeTexturesEnabled = true;
         private bool _addAaoComponentEnabled = true;
+
+        private Material _previewMaterial;
+        private readonly List<PreviewResult> _previewResults = new List<PreviewResult>();
+        private Vector2 _reportScroll;
+
+        private sealed class PreviewResult
+        {
+            public TextureClassification Classification;
+            public int SourceCount;
+            public int SourceCanvasWidth;
+            public int SourceCanvasHeight;
+            public int FinalWidth;
+            public int FinalHeight;
+            public Texture2D ComposedPreview; // in-memory only, never saved (FR-017)
+        }
 
         [MenuItem("Tools/VRC Rufu/Quest Avatar Converter")]
         public static void ShowWindow()
@@ -55,6 +76,12 @@ namespace VrcRufu.QuestAvatarConverter
         private void OnEnable()
         {
             RefreshAvailableRules();
+            RefreshAvailableCompatibilityRules();
+        }
+
+        private void OnDisable()
+        {
+            ClearPreviewResults();
         }
 
         private void OnGUI()
@@ -75,7 +102,15 @@ namespace VrcRufu.QuestAvatarConverter
                 }
             }
 
-            if (_lastResult != null)
+            EditorGUILayout.Space();
+            DrawPreviewPanel();
+
+            if (_lastReport != null)
+            {
+                EditorGUILayout.Space();
+                DrawReportPanel();
+            }
+            else if (_lastResult != null)
             {
                 EditorGUILayout.Space();
                 DrawLastResultSummary();
@@ -162,6 +197,7 @@ namespace VrcRufu.QuestAvatarConverter
                 "Cancel");
 
             _lastResult = ConversionPipeline.Run(_sourceAvatar, settings, _availableRules, ConfirmOverwrite);
+            _lastReport = null;
 
             foreach (var entry in _lastResult.Log)
             {
@@ -170,9 +206,16 @@ namespace VrcRufu.QuestAvatarConverter
 
             if (_lastResult.QuestAvatar?.RootPrefab != null)
             {
+                // T043/FR-019: aggregate performance metrics + compatibility findings (incl.
+                // PhysBone, FR-016a) into a single displayable report right after a successful
+                // generation, so the Report panel (T044) has something to show without a
+                // separate step.
+                RefreshAvailableCompatibilityRules();
+                _lastReport = ConversionReport.Analyze(_lastResult, _availableCompatibilityRules);
+
                 EditorUtility.DisplayDialog(
                     "Quest Avatar Generated",
-                    $"Quest avatar generated at:\n{_lastResult.OutputRoot}\n\nSee the Console for the full conversion log.",
+                    $"Quest avatar generated at:\n{_lastResult.OutputRoot}\n\nSee the Report panel below, or the Console, for the full conversion log.",
                     "OK");
             }
             else
@@ -275,6 +318,258 @@ namespace VrcRufu.QuestAvatarConverter
 
             var restoredIndex = _availableRules.FindIndex(r => r.TargetShader != null && r.TargetShader.name == previousSelectionName);
             _selectedRuleIndex = restoredIndex >= 0 ? restoredIndex : 0;
+        }
+
+        /// <summary>Reloads every <see cref="QuestCompatibilityRules"/> asset in the project and
+        /// keeps only the ones that pass <see cref="QuestCompatibilityRulesLoader"/>'s contract
+        /// invariants (contracts §2: "not silently skipped").</summary>
+        private void RefreshAvailableCompatibilityRules()
+        {
+            var candidates = new List<QuestCompatibilityRules>();
+            foreach (var guid in AssetDatabase.FindAssets($"t:{nameof(QuestCompatibilityRules)}"))
+            {
+                var rules = AssetDatabase.LoadAssetAtPath<QuestCompatibilityRules>(AssetDatabase.GUIDToAssetPath(guid));
+                if (rules != null)
+                {
+                    candidates.Add(rules);
+                }
+            }
+
+            var result = QuestCompatibilityRulesLoader.Load(candidates);
+            foreach (var error in result.Errors)
+            {
+                Debug.LogError($"[Quest Avatar Converter] Compatibility rule load error: {error}");
+            }
+            foreach (var warning in result.Warnings)
+            {
+                Debug.LogWarning($"[Quest Avatar Converter] Compatibility rule load warning: {warning}");
+            }
+
+            _availableCompatibilityRules = result.ValidRules.ToList();
+        }
+
+        // ===== T044: Report panel =====
+
+        private void DrawReportPanel()
+        {
+            EditorGUILayout.LabelField("Report", EditorStyles.boldLabel);
+
+            var metrics = _lastReport.PerformanceMetrics;
+            if (metrics != null)
+            {
+                EditorGUILayout.LabelField($"Triangles: {metrics.TriangleCount:N0}");
+                EditorGUILayout.LabelField($"Materials: {metrics.MaterialCount}");
+                EditorGUILayout.LabelField($"Skinned Mesh Renderers: {metrics.SkinnedMeshRendererCount}");
+                EditorGUILayout.LabelField($"Bones: {metrics.BoneCount}");
+                EditorGUILayout.LabelField($"Textures: {metrics.TextureCount}");
+                EditorGUILayout.LabelField($"Estimated Texture Memory: {EditorUtility.FormatBytes(metrics.EstimatedTextureMemoryBytes)}");
+            }
+
+            var physBone = _lastReport.PhysBoneMetrics;
+            if (physBone != null)
+            {
+                EditorGUILayout.Space();
+                EditorGUILayout.LabelField(
+                    $"PhysBones: {physBone.PhysBoneComponentCount} components, {physBone.PhysBoneColliderCount} colliders, " +
+                    $"{physBone.PhysBoneAffectedTransformCount} affected transforms, {physBone.PhysBoneCollisionCheckCount} collision checks");
+                EditorGUILayout.LabelField($"Quest Performance Rank: {physBone.ResultingRank}");
+            }
+
+            EditorGUILayout.Space();
+            EditorGUILayout.LabelField($"Compatibility Findings ({_lastReport.CompatibilityFindings.Count})", EditorStyles.boldLabel);
+
+            if (_lastReport.CompatibilityFindings.Count == 0)
+            {
+                EditorGUILayout.HelpBox("No flagged objects.", MessageType.Info);
+            }
+            else
+            {
+                _reportScroll = EditorGUILayout.BeginScrollView(_reportScroll, GUILayout.Height(160));
+                foreach (var finding in _lastReport.CompatibilityFindings)
+                {
+                    DrawFinding(finding);
+                }
+                EditorGUILayout.EndScrollView();
+
+                EditorGUILayout.HelpBox(
+                    "Selecting neither Remove nor Keep leaves the object untouched (FR-021: the tool " +
+                    "never auto-removes a flagged component). Apply Decisions only acts on items you've " +
+                    "explicitly marked Remove.",
+                    MessageType.None);
+
+                if (GUILayout.Button("Apply Decisions"))
+                {
+                    ApplyCompatibilityDecisions();
+                }
+            }
+        }
+
+        private static void DrawFinding(CompatibilityFinding finding)
+        {
+            using (new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
+            {
+                using (new EditorGUILayout.VerticalScope())
+                {
+                    var severityLabel = finding.Severity == CompatibilityFinding.FindingSeverity.BlockingIfUnaddressed ? "BLOCKING" : "Warning";
+                    EditorGUILayout.LabelField($"[{severityLabel}] {(finding.TargetObject != null ? finding.TargetObject.name : "(unknown object)")}", EditorStyles.boldLabel);
+                    EditorGUILayout.LabelField(finding.Reason, EditorStyles.wordWrappedLabel);
+                    EditorGUILayout.ObjectField("Object", finding.TargetObject, typeof(Object), true);
+                }
+
+                using (new EditorGUILayout.VerticalScope(GUILayout.Width(70)))
+                {
+                    var isRemove = finding.UserDecision == CompatibilityFinding.RemovalDecision.Remove;
+                    var isKeep = finding.UserDecision == CompatibilityFinding.RemovalDecision.Keep;
+
+                    if (GUILayout.Toggle(isRemove, "Remove", "Button"))
+                    {
+                        finding.UserDecision = CompatibilityFinding.RemovalDecision.Remove;
+                    }
+                    else if (isRemove)
+                    {
+                        finding.UserDecision = CompatibilityFinding.RemovalDecision.Undecided;
+                    }
+
+                    if (GUILayout.Toggle(isKeep, "Keep", "Button"))
+                    {
+                        finding.UserDecision = CompatibilityFinding.RemovalDecision.Keep;
+                    }
+                    else if (isKeep)
+                    {
+                        finding.UserDecision = CompatibilityFinding.RemovalDecision.Undecided;
+                    }
+                }
+            }
+        }
+
+        /// <summary>Destroys only the Components the user explicitly marked Remove — never touches
+        /// an Undecided or Keep item (FR-021).</summary>
+        private void ApplyCompatibilityDecisions()
+        {
+            var removed = 0;
+            foreach (var finding in _lastReport.CompatibilityFindings)
+            {
+                if (finding.UserDecision != CompatibilityFinding.RemovalDecision.Remove || finding.TargetObject == null)
+                {
+                    continue;
+                }
+
+                if (finding.TargetObject is Component component && !(component is Transform))
+                {
+                    Object.DestroyImmediate(component, true);
+                    removed++;
+                }
+            }
+
+            if (removed > 0 && _lastResult?.QuestAvatar?.RootPrefab != null)
+            {
+                EditorUtility.SetDirty(_lastResult.QuestAvatar.RootPrefab);
+                AssetDatabase.SaveAssets();
+            }
+
+            Debug.Log($"[Quest Avatar Converter] Applied {removed} Remove decision(s).");
+        }
+
+        // ===== T045: Preview panel (FR-017 — never calls TextureAssetWriter.Write / never writes to disk) =====
+
+        private void DrawPreviewPanel()
+        {
+            EditorGUILayout.LabelField("Preview", EditorStyles.boldLabel);
+
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                var newMaterial = (Material)EditorGUILayout.ObjectField("Material", _previewMaterial, typeof(Material), false);
+                if (newMaterial != _previewMaterial)
+                {
+                    _previewMaterial = newMaterial;
+                }
+
+                using (new EditorGUI.DisabledScope(_previewMaterial == null))
+                {
+                    if (GUILayout.Button("Preview", GUILayout.Width(70)))
+                    {
+                        RunPreview();
+                    }
+                }
+            }
+
+            foreach (var result in _previewResults)
+            {
+                using (new EditorGUILayout.HorizontalScope(EditorStyles.helpBox))
+                {
+                    if (result.ComposedPreview != null)
+                    {
+                        GUILayout.Label(result.ComposedPreview, GUILayout.Width(64), GUILayout.Height(64));
+                    }
+                    using (new EditorGUILayout.VerticalScope())
+                    {
+                        EditorGUILayout.LabelField($"{result.Classification} ({result.SourceCount} source texture(s))", EditorStyles.boldLabel);
+                        EditorGUILayout.LabelField($"Merged canvas: {result.SourceCanvasWidth}x{result.SourceCanvasHeight}");
+                        EditorGUILayout.LabelField($"Final resolution: {result.FinalWidth}x{result.FinalHeight}");
+                    }
+                }
+            }
+        }
+
+        /// <summary>Dry-runs ShaderPropertyMapper/TextureTypeClassifier/TextureAtlasGenerator/
+        /// TextureResizer plus an in-memory-only composite (TextureAssetWriter.CompositeAndResize)
+        /// for the selected Material — no asset is written to disk (FR-017).</summary>
+        private void RunPreview()
+        {
+            ClearPreviewResults();
+            if (_previewMaterial == null || _previewMaterial.shader == null)
+            {
+                return;
+            }
+
+            RefreshAvailableRules();
+            if (_availableRules.Count == 0 || _selectedRuleIndex < 0 || _selectedRuleIndex >= _availableRules.Count)
+            {
+                return;
+            }
+
+            var rule = _availableRules.FirstOrDefault(r => r.SourceShader == _previewMaterial.shader)
+                       ?? _availableRules[_selectedRuleIndex];
+
+            var pcMaterial = AssetResolver.BuildPCMaterialFromAsset(_previewMaterial);
+            var mappingResult = ShaderPropertyMapper.Map(rule, pcMaterial);
+            var classified = TextureTypeClassifier.Classify(mappingResult);
+
+            foreach (var entry in classified)
+            {
+                var sources = entry.Value;
+                if (!_mergeTexturesEnabled && sources.Count > 1)
+                {
+                    sources = new List<PCTexture> { sources[0] };
+                }
+
+                var layout = TextureAtlasGenerator.Generate(sources);
+                var maxSize = _resizeTexturesEnabled ? _maxTextureSize : int.MaxValue;
+                var composed = TextureAssetWriter.CompositeAndResize(layout, maxSize, out var finalWidth, out var finalHeight);
+
+                _previewResults.Add(new PreviewResult
+                {
+                    Classification = entry.Key,
+                    SourceCount = sources.Count,
+                    SourceCanvasWidth = layout.Width,
+                    SourceCanvasHeight = layout.Height,
+                    FinalWidth = finalWidth,
+                    FinalHeight = finalHeight,
+                    ComposedPreview = composed,
+                });
+            }
+        }
+
+        private void ClearPreviewResults()
+        {
+            foreach (var result in _previewResults)
+            {
+                if (result.ComposedPreview != null)
+                {
+                    Object.DestroyImmediate(result.ComposedPreview);
+                }
+            }
+            _previewResults.Clear();
         }
     }
 }

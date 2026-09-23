@@ -61,6 +61,11 @@ namespace VrcRufu.QuestAvatarConverter.Pipeline
             return pcAvatar;
         }
 
+        /// <summary>Public entry point for building a standalone <see cref="PCMaterial"/> from a
+        /// single Material asset outside of a full avatar traversal — used by the Preview panel
+        /// (T045), which previews one Material at a time without resolving a whole avatar.</summary>
+        public static PCMaterial BuildPCMaterialFromAsset(Material material) => BuildPCMaterial(material);
+
         private static PCMaterial BuildPCMaterial(Material material)
         {
             var properties = new List<MaterialProperty>();
