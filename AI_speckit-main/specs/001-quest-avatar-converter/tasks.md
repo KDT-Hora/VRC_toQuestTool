@@ -441,19 +441,56 @@ interactive Unity Editor session (see the T033 note — still outstanding across
 
 ## Phase 6: Polish & Cross-Cutting Concerns
 
-- [ ] T047 [P] Finalize `package.json` / VPM listing metadata (display name, description, Unity
+- [X] T047 [P] Finalize `package.json` / VPM listing metadata (display name, description, Unity
       2022.3.22f1 minimum, VRChat SDK3 - Avatars 3.10.4 and AAO 1.9.19 dependency ranges) at
-      `Packages/com.vrc-rufu.quest-avatar-converter/package.json`
-- [ ] T048 [P] Confirm AAO's actual `Trace And Optimize` C# class name against the installed AAO
+      `Packages/com.vrc-rufu.quest-avatar-converter/package.json`. Added `unityRelease: "22f1"`
+      (the `unity` field alone only carries major.minor per UPM convention), a fuller description,
+      and `keywords`. **Did not** add `com.vrchat.base`/`nadena.dev.ndmf` as `dependencies` entries
+      despite the task text's "and AAO 1.9.19 dependency ranges" framing suggesting a fuller list —
+      research.md §2b already explains why: they're git-URL/embedded-local project-level
+      dependencies in `manifest.json`, not standard-UPM-resolvable, so declaring them in this
+      package's own `dependencies` risks a resolution error rather than fixing anything (verified:
+      adding them and re-running `unity test` reproduced no error either way in THIS project, since
+      they're already present — but the risk is for a fresh project without them pre-resolved,
+      which research.md's original reasoning was written for). Kept only
+      `com.vrchat.avatars`/`com.anatawa12.avatar-optimizer`/`com.unity.test-framework`, matching T004.
+- [X] T048 [P] Confirm AAO's actual `Trace And Optimize` C# class name against the installed AAO
       DLL/source and correct `AAOIntegrator.cs` (T028) if it differs from the assumed name
-      (research.md §3)
-- [ ] T049 [P] Reconfirm the exact VRChat SDK3 - Avatars version (research.md §2) and the
-      `VRChat/Mobile/Toon Standard` default-target-shader choice (research.md §4) against a live VCC
-      project, adjusting T004/T009/T031 if either has changed
+      (research.md §3). Already correct — `AddComponent<Anatawa12.AvatarOptimizer.TraceAndOptimize>()`
+      succeeded across every Phase 2/3/4/5 smoke-test run this session (AAO component confirmed
+      present on the generated Quest avatar each time); no correction needed.
+- [X] T049 [P] Reconfirmed VRChat SDK3 - Avatars (research.md §2) and AAO (research.md §3) against
+      their live sources on 2026-09-23 (4 days after research.md's original 2026-09-19 check): both
+      still current — VRChat SDK **3.10.5** remains the latest non-beta release
+      (github.com/vrchat/packages/releases), AAO **1.9.19** remains the latest non-prerelease
+      release (github.com/anatawa12/AvatarOptimizer/releases). No version bump needed for
+      T004/T009. **Not fully done**: the `VRChat/Mobile/Toon Standard` "flagship default shader"
+      framing (research.md §4, already flagged there as medium-confidence) was NOT reconfirmed — the
+      creators.vrchat.com shaders page returned 404 during this check, and no live VCC project was
+      available in this environment to verify against directly. Low practical risk either way since
+      both `Toon Lit` and `Toon Standard` are registered as selectable targets (T009), not just the
+      default — but this specific sub-item is carried forward, not closed.
 - [ ] T050 Run the complete quickstart.md validation pass (all 8 scenarios) end-to-end in a clean
-      test project before considering the feature release-ready
-- [ ] T051 [P] Update the root `README.md` and `AI_speckit-main/README.md` status sections to
-      reflect implementation completion
+      test project before considering the feature release-ready — **NOT DONE as literally
+      specified, and knowingly left incomplete.** What this session actually did, cumulatively, is
+      run headless equivalents of Scenarios 1/2/3 (T033's Phase 2 checkpoint), 7/8 (T033), the
+      US2 setting-variation equivalent of Scenario 1 (T038), and 5/6 (T046) — all in *this* dev/test
+      project via temporary `-executeMethod` tools driving `ConversionPipeline`/`ConversionReport`
+      directly, never through the actual `QuestAvatarConverterWindow` GUI, and never in a separate
+      clean project. Scenario 4 (AAO absent) could not be run at all — this package compiles
+      against AAO directly (T004), so removing AAO from any project containing this package breaks
+      the package's own compilation rather than exercising a graceful runtime halt (see the T033
+      note's fuller explanation). **Before this feature can be considered release-ready**, a human
+      needs to: open a real Unity Editor session, install this package into a project with a real
+      VRChat avatar per quickstart.md's Prerequisites, and click through all 8 scenarios by hand —
+      including Scenario 4 in a *second* project/copy with AAO actually absent. This is the single
+      largest remaining gap in this implementation.
+- [X] T051 [P] Updated the root `README.md` (tool usage section now describes the actual GUI
+      workflow — menu location, Source Avatar field, Generate, Report/Preview panels — instead of
+      "no GUI yet"; status section reflects 46/51 tasks done; added a pointer to the known
+      interactive-validation gap from T050's note) and `AI_speckit-main/README.md` (the one stale
+      status line, "constitution.md not yet filled in," corrected — it was filled in during Phase
+      1/T001-era work, this line just hadn't been updated since).
 
 ---
 

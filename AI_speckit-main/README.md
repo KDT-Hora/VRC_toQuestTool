@@ -10,7 +10,7 @@ Spec Kit は「仕様 → 計画 → タスク → 実装」を段階的に進�
 
 ```
 .claude/skills/speckit-*/SKILL.md   Claude Code から呼び出す各フェーズのSkill定義
-.specify/memory/constitution.md     プロジェクトの原則(未記入のテンプレート状態)
+.specify/memory/constitution.md     プロジェクトの原則(v1.0.0で確立済み)
 .specify/templates/                 spec / plan / tasks / checklist 生成用テンプレート
 .specify/scripts/powershell/        各フェーズの前処理スクリプト(PowerShell版)
 .specify/workflows/                 spec-kit 標準ワークフロー定義

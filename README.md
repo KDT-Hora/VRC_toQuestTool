@@ -43,15 +43,14 @@ UnityProject/                                   ツール本体を開発・動�
 4. `/speckit-plan` — 実装計画を作成 ✅ 完了
 5. `/speckit-tasks` — 実行可能なタスク一覧を生成 ✅ 完了（51タスク）
 6. `/speckit-analyze` / `/speckit-checklist`（任意）— 整合性・完全性チェック（未実施）
-7. `/speckit-implement` — タスクを実行 🔄 進行中（詳細は下記「現在の状態」）
+7. `/speckit-implement` — タスクを実行 🔄 ほぼ完了（詳細は下記「現在の状態」）
 8. `/speckit-converge` — 未実装分を検出してタスクに追記（未実施）
 
 詳細な使い方は [`AI_speckit-main/README.md`](AI_speckit-main/README.md) を参照してください。
 
 ## ツール本体のセットアップ・使い方
 
-現時点ではツール本体（コンバーターのコア変換エンジン）を実装中で、Unity Editor上で実際に動かせる
-GUI（Generateボタン等）はまだありません。現在動かせるのは開発・テスト用のUnityプロジェクトのみです。
+Generateボタンを含むGUI（`QuestAvatarConverterWindow`）まで実装済みです。
 
 1. リポジトリをクローン
 2. `UnityProject/Scripts/fetch-vrchat-sdk.ps1` をPowerShellで実行し、VRChat SDK3 (Base / Avatars) を
@@ -59,15 +58,25 @@ GUI（Generateボタン等）はまだありません。現在動かせるのは
 3. Unity Hub / Unity CLI で `UnityProject/`（Unity 2022.3.22f1推奨。詳細は
    [`AI_speckit-main/specs/001-quest-avatar-converter/research.md`](AI_speckit-main/specs/001-quest-avatar-converter/research.md) 参照）を開く
    - AAO (`com.anatawa12.avatar-optimizer`) と NDMF (`nadena.dev.ndmf`) はGit URL経由で自動解決されます
+   - 解決に失敗する場合（`.csc.rsp.nullsafe`や`AvatarOptimizer.ruleset`関連のコンパイルエラー）は
+     [`UnityProject/README.md`](UnityProject/README.md) のトラブルシューティング項目を参照
 4. EditModeテストの実行方法・詳細は [`UnityProject/README.md`](UnityProject/README.md) を参照
+5. Unity Editorのメニュー `Tools > VRC Rufu > Quest Avatar Converter` からツールウィンドウを開く
+   - Source AvatarにPC版アバターのPrefabを指定し、必要に応じて設定（Target Shader / Placement Offset /
+     Max Texture Size / Merge・Resize Textures / Add AAO Component）を調整して **Generate** を押すと、
+     `Assets/QuestConverted/<アバター名>/` 以下にQuest対応アバターが生成されます
+   - Generate後はウィンドウ内のReportパネルでパフォーマンス指標・PhysBone互換性・フラグ付きコンポーネント
+     （個別にRemove/Keepを選択可能、選択しない限り何も削除されません）を確認できます
+   - Previewパネルで、Generateを押さずに特定Materialの結合結果とTexture解像度を事前確認できます
 
-実際にアバターをQuest対応化できるGUIツールとしての「使い方」は、Phase 3以降（`tasks.md`のUS1〜US3）
-の実装完了後にここへ追記します。
+⚠️ **既知の制約**：この実装は対話的なUnity Editorセッションで実際にGUIをクリックして検証されたことは
+まだありません（ヘッドレスなCLI環境で、パイプライン本体を直接呼び出す形での動作確認のみ実施）。詳細は
+[`tasks.md`](AI_speckit-main/specs/001-quest-avatar-converter/tasks.md) のT033/T038/T046の記録を参照してください。
 
 ## 現在の状態
 
 - 機能仕様: [`spec.md`](AI_speckit-main/specs/001-quest-avatar-converter/spec.md)
 - 実装計画: [`plan.md`](AI_speckit-main/specs/001-quest-avatar-converter/plan.md)
 - タスク一覧・進捗: [`tasks.md`](AI_speckit-main/specs/001-quest-avatar-converter/tasks.md)
-  （Phase 1 Setup: 完了 / Phase 2 Foundational: 完了（変換エンジン本体はGUIなしで動作確認済み） / Phase 3-6: 未着手）
+  （Phase 1〜5：51タスク中46タスク完了。Phase 6「仕上げ」の一部が残っています。詳細は上記の既知の制約を参照）
 - プロジェクトの原則: [`constitution.md`](AI_speckit-main/.specify/memory/constitution.md)

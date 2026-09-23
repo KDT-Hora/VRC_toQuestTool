@@ -3,11 +3,20 @@
   "displayName": "Quest Avatar Converter",
   "version": "0.1.0",
   "unity": "2022.3",
-  "description": "Generates a Quest/Android-compatible derivative of a PC-platform VRChat avatar without modifying the PC avatar or any asset it references (Shader conversion, per-Material Texture atlasing/resizing, AAO Trace And Optimize integration, Quest/PhysBone compatibility checking).",
+  "unityRelease": "22f1",
+  "description": "Generates a Quest/Android-compatible derivative of a PC-platform VRChat avatar without modifying the PC avatar or any asset it references. Converts each referenced Material to a selected VRChat/Mobile shader, merges and resizes each Material's Textures (per classified type: Color/Normal/Mask/Emission), adds AAO's Trace And Optimize component, and reports performance metrics plus individually-flagged Quest-compatibility issues (including PhysBone-specific thresholds) before you upload.",
   "author": {
     "name": "rufu"
   },
   "license": "MIT",
+  "keywords": [
+    "vrchat",
+    "avatar",
+    "quest",
+    "android",
+    "mobile",
+    "converter"
+  ],
   "dependencies": {
     "com.vrchat.avatars": "3.10.5",
     "com.anatawa12.avatar-optimizer": "1.9.19",
