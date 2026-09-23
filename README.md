@@ -56,7 +56,7 @@ GUI（Generateボタン等）はまだありません。現在動かせるのは
 1. リポジトリをクローン
 2. `UnityProject/Scripts/fetch-vrchat-sdk.ps1` をPowerShellで実行し、VRChat SDK3 (Base / Avatars) を
    ローカル導入（ライセンスの都合上リポジトリには同梱していません）
-3. Unity Hub / Unity CLI で `UnityProject/`（Unity 2022.3.5f1推奨。詳細は
+3. Unity Hub / Unity CLI で `UnityProject/`（Unity 2022.3.22f1推奨。詳細は
    [`AI_speckit-main/specs/001-quest-avatar-converter/research.md`](AI_speckit-main/specs/001-quest-avatar-converter/research.md) 参照）を開く
    - AAO (`com.anatawa12.avatar-optimizer`) と NDMF (`nadena.dev.ndmf`) はGit URL経由で自動解決されます
 4. EditModeテストの実行方法・詳細は [`UnityProject/README.md`](UnityProject/README.md) を参照

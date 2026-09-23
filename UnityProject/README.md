@@ -1,6 +1,6 @@
 # UnityProject
 
-Local Unity 2022.3.5f1 dev/test project for the Quest Avatar Converter package
+Local Unity 2022.3.22f1 dev/test project for the Quest Avatar Converter package
 (`Packages/com.vrc-rufu.quest-avatar-converter/`). See
 `specs/001-quest-avatar-converter/` in the repo root for the spec/plan/tasks driving this
 implementation.
@@ -25,5 +25,5 @@ time the project opens (or via `unity test` / `unity run`) — no manual step ne
 ## Running EditMode tests
 
 ```powershell
-unity test . --editor-version 2022.3.5f1 --mode EditMode --report-format junit --output ./test-results.xml
+unity test . --editor-version 2022.3.22f1 --mode EditMode --report-format junit --output ./test-results.xml
 ```

@@ -21,8 +21,8 @@ Creator Companion / a VPM listing).
 **Language/Version**: C# targeting Unity 2022.3 LTS's supported Roslyn/language version (Unity
 2022.3.22f1 — research.md §1)
 
-**Primary Dependencies**: Unity Editor 2022.3.5f1 (locally available; pinned target remains
-2022.3.22f1, see research.md §1) — `UnityEditor`/`UnityEngine` APIs, `AssetDatabase`. VRChat SDK3 -
+**Primary Dependencies**: Unity Editor 2022.3.22f1 (locally available; matches the pinned target,
+see research.md §1) — `UnityEditor`/`UnityEngine` APIs, `AssetDatabase`. VRChat SDK3 -
 Avatars 3.10.5 + SDK3 - Base 3.10.5 (assemblies `VRC.SDK3A`, `VRC.SDKBase`; PhysBone/PhysBone
 Collider types are in the precompiled `VRC.SDK3.Dynamics.PhysBone` assembly bundled inside
 SDK3-Base — research.md §2). `nadena.dev.ndmf` 1.14.8, a transitive dependency of AAO discovered
@@ -149,7 +149,7 @@ responsibility per Constitution Principle IV; externalized rule data lives under
 ScriptableObject assets per Constitution Principle III; a dedicated `Editor.Tests` assembly holds
 EditMode tests for the Editor-independent core logic per Constitution Principle VI. Package ID:
 `com.vrc-rufu.quest-avatar-converter` (confirmed with the project owner 2026-09-19). A local
-Unity 2022.3.5f1 dev/test project hosting this package (plus VRChat SDK3-Base/Avatars, NDMF, and
+Unity 2022.3.22f1 dev/test project hosting this package (plus VRChat SDK3-Base/Avatars, NDMF, and
 AAO as embedded/git-URL packages so the package can actually compile and run its EditMode tests)
 lives at `UnityProject/` under the repository root — the `Packages/...` path below is therefore
 `UnityProject/Packages/com.vrc-rufu.quest-avatar-converter/` on disk.

@@ -24,32 +24,27 @@ each story is independently implementable, testable, and deliverable as an incre
 - **[Story]**: Which user story this task belongs to (US1, US2, US3)
 - File paths below are relative to the UPM package root
   `UnityProject/Packages/com.vrc-rufu.quest-avatar-converter/` unless stated otherwise (see plan.md
-  Project Structure). `UnityProject/` is a local Unity 2022.3.5f1 dev/test project created during
+  Project Structure). `UnityProject/` is a local Unity 2022.3.22f1 dev/test project created during
   `/speckit-implement` to host and compile this package.
 
 ---
 
-## ⏭️ Resume point (next session)
+## ✅ Setup checkpoint verified (2026-09-23)
 
-Setup (T001-T004) is done but its own checkpoint — "package compiles empty; test assembly is
-discoverable by the Unity Test Runner" — has **not yet been verified**. A verification run was
-started and then intentionally cancelled mid-run this session (not a failure, just stopped early to
-end the session cleanly) and `UnityProject/Temp/UnityLockfile` was removed so the next launch isn't
-blocked by a stale lock.
+Setup (T001-T004) is done and its checkpoint — "package compiles empty; test assembly is
+discoverable by the Unity Test Runner" — **passed**: `unity test` completed with exit code 0
+against Unity **2022.3.22f1** (7/7 tests passed — VRChat SDK's own EditMode tests; this
+package's own `Editor.Tests` assembly is still empty at this point, populated starting T005+).
 
-**Before starting T005**, run this first and confirm it completes with no compile errors:
+Note for future clones/machines: this git package (`com.anatawa12.avatar-optimizer`, resolved via
+git URL in `Packages/manifest.json`) ships internal `csc.rsp`/`.ruleset` files as **symlinks**. If
+Windows Developer Mode is off or `core.symlinks` is `false` (global or repo-local), git checks
+these out as plain text files containing the link target instead of real symlinks, which Unity
+then fails to parse (`CS2001`/`CS8035` in compile errors). Fix: enable Windows Developer Mode,
+`git config --global core.symlinks true` (and repo-local, if overridden), delete the affected
+package's folder under `UnityProject/Library/PackageCache/`, and let Unity re-resolve it.
 
-```powershell
-$env:PATH += ";C:\Users\com\AppData\Local\Unity\bin"
-unity test "C:\Users\com\Downloads\toQuestTool\UnityProject" --editor-version 2022.3.5f1 --mode EditMode --format json --timeout 600
-```
-
-This is the first real Editor import/compile of this project (VRChat SDK3-Base/Avatars are large
-packages), so expect the first run to take several minutes. If `unity` isn't found, re-run the
-install step from `unity-cli` skill's beta-channel installer (see this session's transcript) — the
-binary lands at `C:\Users\com\AppData\Local\Unity\bin\unity.exe`, not yet on PATH by default.
-If it fails, fix the reported compile error(s) before proceeding to T005 — do not implement new
-pipeline code on top of an unverified empty-package compile.
+Next step: **T005**.
 
 ---
 
@@ -70,8 +65,8 @@ pipeline code on top of an unverified empty-package compile.
       Avatar Optimizer 1.9.19 (research.md §1–§3); `nadena.dev.ndmf` 1.14.8 and `com.vrchat.base`
       3.10.5 are declared as project-level dependencies in `UnityProject/Packages/manifest.json`
       (git URL / embedded-local respectively) since standard UPM does not read AAO's
-      `vpmDependencies` field (research.md §2b); targeting Unity 2022.3.5f1 locally (2022.3.22f1
-      remains the documented supported-version target, research.md §1)
+      `vpmDependencies` field (research.md §2b); targeting Unity 2022.3.22f1 locally, matching the
+      documented supported-version target (research.md §1)
 
 **Checkpoint**: Package compiles empty; test assembly is discoverable by the Unity Test Runner.
 
