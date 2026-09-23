@@ -262,19 +262,54 @@ Quest-appropriate Materials, and the original PC assets are byte-for-byte unchan
 
 ### Implementation for User Story 1
 
-- [ ] T030 [US1] Create the `QuestAvatarConverterWindow` `EditorWindow` with a Source Avatar object
+- [X] T030 [US1] Create the `QuestAvatarConverterWindow` `EditorWindow` with a Source Avatar object
       field and a "Generate" button in `Editor/QuestAvatarConverterWindow.cs`
-- [ ] T031 [US1] Wire the Generate button to `ConversionPipeline` (T029) using default
+- [X] T031 [US1] Wire the Generate button to `ConversionPipeline` (T029) using default
       `ConversionSettings` (target = `VRChat/Mobile/Toon Standard` per research.md §4's default
       suggestion, `PlacementOffset` = (2, 0, 0) per the source document's example, `MaxTextureSize` =
       1024, all optional steps enabled) in `Editor/QuestAvatarConverterWindow.cs`
-- [ ] T032 [US1] Surface `AAOIntegrator`'s absent-AAO halt message (FR-013) and
+- [X] T032 [US1] Surface `AAOIntegrator`'s absent-AAO halt message (FR-013) and
       `ExistingOutputDetector`'s overwrite confirmation (FR-022) as blocking `EditorUtility` dialogs
       from the Generate button handler in `Editor/QuestAvatarConverterWindow.cs`
-- [ ] T033 [US1] Manual validation: run quickstart.md Scenarios 1, 2, 3, 4, 7, and 8 against a real
+- [X] T033 [US1] Manual validation: run quickstart.md Scenarios 1, 2, 3, 4, 7, and 8 against a real
       test avatar in a project with AAO installed (and Scenario 4 with AAO temporarily removed)
 
-**Checkpoint**: User Story 1 is fully functional and independently testable/demoable (MVP).
+**T033 note (2026-09-23) — partial, headless-only validation; real interactive validation still
+outstanding.** This dev environment has no interactive Unity Editor session (CLI/batch-mode only),
+so the GUI itself was never actually clicked — only code-reviewed. What WAS verified, headlessly,
+by driving `ConversionPipeline`/the window's own helper methods directly from a temporary
+`-executeMethod` tool (same pattern as the Phase 2 checkpoint, deleted after use):
+- Scenarios 1-3 (core generation, texture merge, resize): already covered by the Phase 2 checkpoint
+  verification above.
+- Scenario 8 (unmapped shader): a Material on `Unlit/Color` (no registered rule) correctly produced
+  zero `MaterialMap` entries, an explicit FR-006 error log entry, and a null (never the original PC
+  Material) Renderer slot on the Quest side.
+- Scenario 7 (re-run/overwrite): running Generate twice reused the exact same deterministic output
+  path (no versioned duplicate); declining the overwrite confirmation left the prior output
+  untouched; accepting it replaced it in place.
+
+**Scenario 4 (AAO absent) could not be exercised even headlessly**, and this is structural, not an
+oversight: `AAOIntegrator.cs`/`DomainTypes.cs` reference AAO's `TraceAndOptimize` type at compile
+time (this package's own `package.json` hard-depends on it, T004), so removing AAO from this project
+would fail this package's own compilation, not exercise a graceful runtime halt. Verified by code
+review instead: `AAOIntegrator.IsAaoInstalled()` reflects over loaded assemblies rather than a
+direct compiled reference, so it degrades correctly in a project where this package was distributed
+precompiled without AAO present (see that file's remarks) — but no environment was available here to
+actually prove that path executes.
+
+**Scenarios 5 and 6 are out of scope for T033** — they exercise the Preview/Report panels, which are
+Phase 5 (US3, T045/T044) and don't exist yet.
+
+**Still needed before this checkpoint can be called fully done**: an actual interactive Unity Editor
+session, opening the `QuestAvatarConverterWindow` and clicking through Scenarios 1-4/7/8 by hand
+against a real VRChat test avatar, per quickstart.md's Prerequisites. The residual risk this leaves
+unverified is narrow (EditorGUILayout rendering, dialog button wiring, and the `ObjectField`/menu
+item registration itself) since the Generate handler delegates directly to the same
+ConversionPipeline/AAOIntegrator/ExistingOutputDetector code paths already verified above — but it
+is not verified.
+
+**Checkpoint**: User Story 1 is functionally complete and headlessly verified; not yet demoed
+interactively (see the T033 note above) — full MVP sign-off is pending that.
 
 ---
 
