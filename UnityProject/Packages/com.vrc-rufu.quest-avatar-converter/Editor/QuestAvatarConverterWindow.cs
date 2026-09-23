@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using UnityEditor;
 using UnityEngine;
 using VrcRufu.QuestAvatarConverter.Materials;
@@ -7,11 +8,22 @@ using VrcRufu.QuestAvatarConverter.Pipeline;
 namespace VrcRufu.QuestAvatarConverter
 {
     /// <summary>
-    /// T030-T032 (User Story 1 / MVP): the tool's only end-user-facing UI so far — a Source
-    /// Avatar field and a Generate button, wired to <see cref="ConversionPipeline"/> (T029) with
-    /// default <see cref="ConversionSettings"/> (T031). US2 (Phase 4) adds the settings controls
-    /// this window doesn't expose yet; US3 (Phase 5) adds the Preview/Report panels.
+    /// T030-T037 (User Stories 1 &amp; 2): Source Avatar field, Generate button, and the exposed
+    /// settings controls (target shader, placement offset, max texture size, and the Merge
+    /// Textures / Resize Textures / Add AAO Component toggles — FR-005/FR-004/FR-009/FR-018),
+    /// wired to <see cref="ConversionPipeline"/> (T029). US3 (Phase 5) adds the Preview/Report
+    /// panels this window doesn't have yet.
     /// </summary>
+    /// <remarks>
+    /// FR-018 names four independent optional steps, but a "Duplicate Avatar" toggle was
+    /// deliberately NOT added here: data-model.md's ConversionSettings table has no field for it,
+    /// and unlike Merge/Resize/AddAAO — each a well-defined "skip this refinement" — "duplicate
+    /// avatar disabled" has no safe, unambiguous meaning under Constitution I (it cannot mean
+    /// "operate on the PC avatar in place"; the only sound reading, "update the existing Quest
+    /// output without re-duplicating," is a materially different feature, not a simple flag).
+    /// Confirmed with the project owner (2026-09-23) not to invent that behavior here — see
+    /// tasks.md's Phase 2/T029 implementation note.
+    /// </remarks>
     public class QuestAvatarConverterWindow : EditorWindow
     {
         /// <summary>research.md §4's default-target-shader suggestion.</summary>
@@ -24,16 +36,34 @@ namespace VrcRufu.QuestAvatarConverter
         private GameObject _sourceAvatar;
         private ConversionContext _lastResult;
 
+        private List<ShaderConversionRuleSet> _availableRules = new List<ShaderConversionRuleSet>();
+        private string[] _ruleDisplayNames = System.Array.Empty<string>();
+        private int _selectedRuleIndex;
+
+        private Vector3 _placementOffset = DefaultPlacementOffset;
+        private int _maxTextureSize = 1024;
+        private bool _mergeTexturesEnabled = true;
+        private bool _resizeTexturesEnabled = true;
+        private bool _addAaoComponentEnabled = true;
+
         [MenuItem("Tools/VRC Rufu/Quest Avatar Converter")]
         public static void ShowWindow()
         {
             GetWindow<QuestAvatarConverterWindow>("Quest Avatar Converter");
         }
 
+        private void OnEnable()
+        {
+            RefreshAvailableRules();
+        }
+
         private void OnGUI()
         {
             EditorGUILayout.LabelField("Source Avatar (PC Prefab)", EditorStyles.boldLabel);
             _sourceAvatar = (GameObject)EditorGUILayout.ObjectField(_sourceAvatar, typeof(GameObject), false);
+
+            EditorGUILayout.Space();
+            DrawSettings();
 
             EditorGUILayout.Space();
 
@@ -50,6 +80,45 @@ namespace VrcRufu.QuestAvatarConverter
                 EditorGUILayout.Space();
                 DrawLastResultSummary();
             }
+        }
+
+        private void DrawSettings()
+        {
+            EditorGUILayout.LabelField("Settings", EditorStyles.boldLabel);
+
+            // T034 (FR-005): target-shader dropdown, populated from every loaded (and
+            // contract-valid) ShaderConversionRuleSet asset.
+            using (new EditorGUILayout.HorizontalScope())
+            {
+                if (_availableRules.Count == 0)
+                {
+                    EditorGUILayout.HelpBox("No valid ShaderConversionRuleSet assets found under Data/ShaderConversionRules/.", MessageType.Warning);
+                }
+                else
+                {
+                    _selectedRuleIndex = EditorGUILayout.Popup("Target Shader", _selectedRuleIndex, _ruleDisplayNames);
+                }
+                if (GUILayout.Button("Refresh", GUILayout.Width(60)))
+                {
+                    RefreshAvailableRules();
+                }
+            }
+
+            // T035 (FR-004): placement offset.
+            _placementOffset = EditorGUILayout.Vector3Field("Placement Offset", _placementOffset);
+
+            // T036 (FR-009): max texture size.
+            _maxTextureSize = EditorGUILayout.IntField("Max Texture Size", _maxTextureSize);
+            if (_maxTextureSize < 1)
+            {
+                _maxTextureSize = 1;
+            }
+
+            // T037 (FR-018): independent optional-step toggles (Duplicate Avatar excluded — see
+            // this class's remarks).
+            _mergeTexturesEnabled = EditorGUILayout.Toggle("Merge Textures", _mergeTexturesEnabled);
+            _resizeTexturesEnabled = EditorGUILayout.Toggle("Resize Textures", _resizeTexturesEnabled);
+            _addAaoComponentEnabled = EditorGUILayout.Toggle("Add AAO Component", _addAaoComponentEnabled);
         }
 
         private void Generate()
@@ -73,15 +142,14 @@ namespace VrcRufu.QuestAvatarConverter
                 return;
             }
 
-            var loadedRules = LoadValidShaderConversionRules();
-            var settings = BuildDefaultSettings(loadedRules);
+            RefreshAvailableRules();
+            var settings = BuildSettingsFromUi();
 
             if (settings.TargetShaderRule == null)
             {
                 EditorUtility.DisplayDialog(
-                    "No Shader Conversion Rules Found",
-                    $"No valid ShaderConversionRuleSet asset targeting '{DefaultTargetShaderName}' was found " +
-                    "under Data/ShaderConversionRules/. Generation cannot proceed without a target shader rule.",
+                    "No Shader Conversion Rule Selected",
+                    "No valid ShaderConversionRuleSet is selected. Generation cannot proceed without a target shader rule.",
                     "OK");
                 return;
             }
@@ -93,7 +161,7 @@ namespace VrcRufu.QuestAvatarConverter
                 "Overwrite",
                 "Cancel");
 
-            _lastResult = ConversionPipeline.Run(_sourceAvatar, settings, loadedRules, ConfirmOverwrite);
+            _lastResult = ConversionPipeline.Run(_sourceAvatar, settings, _availableRules, ConfirmOverwrite);
 
             foreach (var entry in _lastResult.Log)
             {
@@ -119,6 +187,25 @@ namespace VrcRufu.QuestAvatarConverter
             EditorGUILayout.LabelField("Last Run", EditorStyles.boldLabel);
             EditorGUILayout.LabelField($"Output: {_lastResult.OutputRoot}");
             EditorGUILayout.LabelField($"Log entries: {_lastResult.Log.Count}");
+        }
+
+        private ConversionSettings BuildSettingsFromUi()
+        {
+            ShaderConversionRuleSet selectedRule = null;
+            if (_availableRules.Count > 0 && _selectedRuleIndex >= 0 && _selectedRuleIndex < _availableRules.Count)
+            {
+                selectedRule = _availableRules[_selectedRuleIndex];
+            }
+
+            return new ConversionSettings
+            {
+                TargetShaderRule = selectedRule,
+                PlacementOffset = _placementOffset,
+                MaxTextureSize = _maxTextureSize,
+                MergeTexturesEnabled = _mergeTexturesEnabled,
+                ResizeTexturesEnabled = _resizeTexturesEnabled,
+                AddAaoComponentEnabled = _addAaoComponentEnabled,
+            };
         }
 
         private static void LogToConsole(ConversionLogEntry entry)
@@ -149,35 +236,18 @@ namespace VrcRufu.QuestAvatarConverter
             return null;
         }
 
-        private static ConversionSettings BuildDefaultSettings(IReadOnlyList<ShaderConversionRuleSet> loadedRules)
+        /// <summary>Reloads every <see cref="ShaderConversionRuleSet"/> asset in the project and
+        /// keeps only the ones that pass <see cref="ShaderConversionRuleLoader"/>'s contract
+        /// invariants — a raw, unvalidated rule asset is never offered in the dropdown or handed
+        /// to the pipeline. Load-time errors/warnings are surfaced to the Console (contracts §1:
+        /// "not silently ignored"). Preserves the current selection by TargetShader name across a
+        /// refresh where possible, defaulting to research.md §4's suggested default otherwise.</summary>
+        private void RefreshAvailableRules()
         {
-            ShaderConversionRuleSet defaultRule = null;
-            foreach (var rule in loadedRules)
-            {
-                if (rule.TargetShader != null && rule.TargetShader.name == DefaultTargetShaderName)
-                {
-                    defaultRule = rule;
-                    break;
-                }
-            }
+            var previousSelectionName = _availableRules.Count > 0 && _selectedRuleIndex >= 0 && _selectedRuleIndex < _availableRules.Count
+                ? _availableRules[_selectedRuleIndex].TargetShader?.name
+                : DefaultTargetShaderName;
 
-            return new ConversionSettings
-            {
-                TargetShaderRule = defaultRule,
-                PlacementOffset = DefaultPlacementOffset,
-                MaxTextureSize = 1024,
-                MergeTexturesEnabled = true,
-                ResizeTexturesEnabled = true,
-                AddAaoComponentEnabled = true,
-            };
-        }
-
-        /// <summary>Loads every <see cref="ShaderConversionRuleSet"/> asset in the project and
-        /// returns only the ones that pass <see cref="ShaderConversionRuleLoader"/>'s contract
-        /// invariants — a raw, unvalidated rule asset is never handed to the pipeline. Load-time
-        /// errors/warnings are surfaced to the Console (contracts §1: "not silently ignored").</summary>
-        private static IReadOnlyList<ShaderConversionRuleSet> LoadValidShaderConversionRules()
-        {
             var candidates = new List<ShaderConversionRuleSet>();
             foreach (var guid in AssetDatabase.FindAssets($"t:{nameof(ShaderConversionRuleSet)}"))
             {
@@ -198,7 +268,13 @@ namespace VrcRufu.QuestAvatarConverter
                 Debug.LogWarning($"[Quest Avatar Converter] Shader rule load warning: {warning}");
             }
 
-            return result.ValidRules;
+            _availableRules = result.ValidRules.ToList();
+            _ruleDisplayNames = _availableRules
+                .Select(r => $"{(r.TargetShader != null ? r.TargetShader.name : "(no target)")} ({r.name})")
+                .ToArray();
+
+            var restoredIndex = _availableRules.FindIndex(r => r.TargetShader != null && r.TargetShader.name == previousSelectionName);
+            _selectedRuleIndex = restoredIndex >= 0 ? restoredIndex : 0;
         }
     }
 }

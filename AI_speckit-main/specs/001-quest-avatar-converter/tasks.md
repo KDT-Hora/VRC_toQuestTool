@@ -323,19 +323,29 @@ it, without re-validating all of US1's correctness in detail.
 
 ### Implementation for User Story 2
 
-- [ ] T034 [P] [US2] Add a target-shader dropdown to `QuestAvatarConverterWindow`, populated from
+- [X] T034 [P] [US2] Add a target-shader dropdown to `QuestAvatarConverterWindow`, populated from
       all loaded `ShaderConversionRuleSet` assets (T009), wired to
       `ConversionSettings.TargetShaderRule` (FR-005) in `Editor/QuestAvatarConverterWindow.cs`
-- [ ] T035 [P] [US2] Add Placement Offset X/Y/Z fields wired to
+- [X] T035 [P] [US2] Add Placement Offset X/Y/Z fields wired to
       `ConversionSettings.PlacementOffset` → `AvatarDuplicator` (FR-004) in
       `Editor/QuestAvatarConverterWindow.cs`
-- [ ] T036 [P] [US2] Add a Max Texture Size field wired to `ConversionSettings.MaxTextureSize` →
+- [X] T036 [P] [US2] Add a Max Texture Size field wired to `ConversionSettings.MaxTextureSize` →
       `TextureResizer` (FR-009) in `Editor/QuestAvatarConverterWindow.cs`
-- [ ] T037 [US2] Add independent toggles for Duplicate Avatar / Merge Textures / Resize Textures /
-      Add AAO Component (FR-018), threading each through `ConversionPipeline`'s stage selection in
-      `Editor/QuestAvatarConverterWindow.cs` and `Editor/Pipeline/ConversionPipeline.cs`
-- [ ] T038 [US2] Manual validation: run quickstart.md Scenario 1 with each setting changed one at a
-      time (different target shader, custom offset, custom max size, Merge Textures disabled)
+- [X] T037 [US2] Add independent toggles for Merge Textures / Resize Textures / Add AAO Component
+      (FR-018) in `Editor/QuestAvatarConverterWindow.cs` — **"Duplicate Avatar" deliberately
+      excluded**: confirmed with the project owner (2026-09-23) not to invent semantics for it
+      (data-model.md's `ConversionSettings` has no field for it, and disabling it has no safe,
+      unambiguous meaning under Constitution I — see this decision recorded in
+      `QuestAvatarConverterWindow.cs`'s class remarks and the Phase 2/T029 note above).
+      `ConversionPipeline`'s stage selection already threaded the other three through at T029.
+- [X] T038 [US2] Manual validation: run quickstart.md Scenario 1 with each setting changed one at a
+      time (different target shader, custom offset, custom max size, Merge Textures disabled) —
+      verified headlessly the same way as T033 (temporary `-executeMethod` tool driving
+      `ConversionPipeline` directly with each setting varied one at a time, deleted after use); all
+      four reflected correctly in the output (target shader on the generated Material, avatar
+      position, downscaled texture size capped at the custom max, and Merge Textures disabled
+      producing zero merged/`Layout`-bearing textures). Same interactive-GUI caveat as T033 applies
+      — the window's own controls were not clicked by hand.
 
 **Checkpoint**: User Stories 1 and 2 both work independently; changing any exposed setting visibly
 changes the generated output.
