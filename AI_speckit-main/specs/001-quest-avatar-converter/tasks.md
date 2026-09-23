@@ -487,10 +487,34 @@ interactive Unity Editor session (see the T033 note — still outstanding across
       largest remaining gap in this implementation.
 - [X] T051 [P] Updated the root `README.md` (tool usage section now describes the actual GUI
       workflow — menu location, Source Avatar field, Generate, Report/Preview panels — instead of
-      "no GUI yet"; status section reflects 46/51 tasks done; added a pointer to the known
+      "no GUI yet"; status section reflects task completion; added a pointer to the known
       interactive-validation gap from T050's note) and `AI_speckit-main/README.md` (the one stale
       status line, "constitution.md not yet filled in," corrected — it was filled in during Phase
-      1/T001-era work, this line just hadn't been updated since).
+      1/T001-era work, this line just hadn't been updated since). Status count kept in sync as of
+      2026-09-23: **50/51 tasks complete, only T050 open.**
+
+---
+
+## Post-implementation addendum (2026-09-23, outside the original 51 tasks)
+
+At the project owner's request, after Phase 6, a redistributable `.unitypackage` build of the tool
+was added: `UnityPackage/QuestAvatarConverter-0.1.0.unitypackage` (exported from
+`UnityProject/Packages/com.vrc-rufu.quest-avatar-converter/` via `AssetDatabase.ExportPackage(...,
+ExportPackageOptions.Recurse)`, verified by inspecting the archive's internal `pathname` entries to
+confirm every asset keeps its original `Packages/com.vrc-rufu.quest-avatar-converter/...` path — so
+importing it into another project recreates a normal embedded UPM package, not loose files under
+`Assets/`), plus `UnityPackage/README.md` documenting import steps.
+
+Confirmed explicitly with the project owner: this bundles **only** this tool's own package.
+**VRChat SDK3 (Base/Avatars) and Avatar Optimizer (AAO) are NOT included** and are treated as
+prerequisites the user installs themselves (VRChat SDK3 for licensing reasons — it may not be
+redistributed; AAO to avoid a version conflict with whatever the target project already has via
+VCC/UPM, since this package compiles directly against both at the C# level). Importing into a
+project missing either produces compile errors naming the missing types; this is documented in
+`UnityPackage/README.md`, not left as a silent surprise.
+
+Root `README.md` and this file were both updated to reflect this (see T051 above and the repo
+structure listing in the root README).
 
 ---
 

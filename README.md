@@ -31,6 +31,10 @@ UnityProject/                                   ツール本体を開発・動�
 ├─ Packages/com.vrc-rufu.quest-avatar-converter/  ツール本体（UPMパッケージ）
 ├─ Scripts/fetch-vrchat-sdk.ps1                 VRChat SDK3導入スクリプト（初回セットアップ用）
 └─ README.md                                    Unityプロジェクトのセットアップ・テスト実行手順
+
+UnityPackage/                                   ツール本体の配布用.unitypackage
+├─ QuestAvatarConverter-0.1.0.unitypackage      インポートするだけで導入できるツール本体（VRChat SDK3/AAOは同梱せず、別途導入が前提）
+└─ README.md                                    インポート手順・前提条件
 ```
 
 ## 開発の進め方（Spec-Driven Development）
@@ -51,6 +55,11 @@ UnityProject/                                   ツール本体を開発・動�
 ## ツール本体のセットアップ・使い方
 
 Generateボタンを含むGUI（`QuestAvatarConverterWindow`）まで実装済みです。
+
+**すでにVRChat SDK3・AAO導入済みのプロジェクトにツールだけ入れたい場合**は、
+[`UnityPackage/QuestAvatarConverter-0.1.0.unitypackage`](UnityPackage/QuestAvatarConverter-0.1.0.unitypackage)
+をインポートするだけで導入できます（詳細は [`UnityPackage/README.md`](UnityPackage/README.md)）。
+以下は開発・動作確認用にリポジトリ全体をセットアップする手順です。
 
 1. リポジトリをクローン
 2. `UnityProject/Scripts/fetch-vrchat-sdk.ps1` をPowerShellで実行し、VRChat SDK3 (Base / Avatars) を
@@ -78,5 +87,6 @@ Generateボタンを含むGUI（`QuestAvatarConverterWindow`）まで実装済�
 - 機能仕様: [`spec.md`](AI_speckit-main/specs/001-quest-avatar-converter/spec.md)
 - 実装計画: [`plan.md`](AI_speckit-main/specs/001-quest-avatar-converter/plan.md)
 - タスク一覧・進捗: [`tasks.md`](AI_speckit-main/specs/001-quest-avatar-converter/tasks.md)
-  （Phase 1〜5：51タスク中46タスク完了。Phase 6「仕上げ」の一部が残っています。詳細は上記の既知の制約を参照）
+  （51タスク中50タスク完了。残るT050「クリーンなプロジェクトでの対話的な全シナリオ確認」のみ未実施。
+  詳細は上記の既知の制約を参照）
 - プロジェクトの原則: [`constitution.md`](AI_speckit-main/.specify/memory/constitution.md)
