@@ -163,71 +163,91 @@ rather than hand-written asset YAML, since letting Unity's own serializer produc
 surfaced (and let us confirm the fix for) this bug — hand-authored YAML would have LOOKED valid
 while hiding the same defect. Regression coverage: `Editor.Tests/DefaultRuleAssetsTests.cs` loads
 both default assets via `AssetDatabase` and asserts their data round-tripped correctly.
-- [ ] T013 Implement `AssetResolver` in `Editor/Pipeline/AssetResolver.cs`: traverse only each
+- [X] T013 Implement `AssetResolver` in `Editor/Pipeline/AssetResolver.cs`: traverse only each
       Renderer's static `sharedMaterial`(s) → Material → Texture at conversion time (FR-003);
       Animator/Animation-Clip-driven material/texture swaps MUST NOT be discovered (out of scope
       per spec Assumptions); the VRC Avatar Descriptor reference IS followed
-- [ ] T014 Implement `AvatarDuplicator` in `Editor/Pipeline/AvatarDuplicator.cs`: produce a fully
+- [X] T014 Implement `AvatarDuplicator` in `Editor/Pipeline/AvatarDuplicator.cs`: produce a fully
       independent Prefab copy, never a Prefab Variant (FR-023), placed at the PC avatar's position
       plus `ConversionSettings.PlacementOffset` (FR-004), under
       `Assets/<QuestConvertedRoot>/<AvatarName>/Avatar/` (FR-002)
-- [ ] T015 Implement `ExistingOutputDetector` in `Editor/Pipeline/ExistingOutputDetector.cs`:
+- [X] T015 Implement `ExistingOutputDetector` in `Editor/Pipeline/ExistingOutputDetector.cs`:
       detect prior Quest output at the target path and require an explicit user-approved
       confirmation before any overwrite occurs (FR-022) — no silent overwrite path may exist
-- [ ] T016 Implement `ShaderPropertyMapper` as pure, Editor-independent resolution logic (takes a
+- [X] T016 Implement `ShaderPropertyMapper` as pure, Editor-independent resolution logic (takes a
       `ShaderConversionRuleSet` + source Material property values, returns target property values)
       in `Editor/Materials/ShaderPropertyMapper.cs` (Constitution Principle VI)
-- [ ] T017 [P] [Tests] EditMode tests for `ShaderPropertyMapper` resolution logic (mapped
+- [X] T017 [P] [Tests] EditMode tests for `ShaderPropertyMapper` resolution logic (mapped
       properties translate correctly; an unmapped-but-used source Property produces a warning per
       the spec's Edge Cases, not a silent drop) in `Editor.Tests/ShaderPropertyMapperTests.cs`
-- [ ] T018 Implement `MaterialConverter` in `Editor/Materials/MaterialConverter.cs` (FR-006):
+- [X] T018 Implement `MaterialConverter` in `Editor/Materials/MaterialConverter.cs` (FR-006):
       look up the `PCMaterial.Shader` in loaded `ShaderConversionRuleSet`s; if none matches, record
       that Material as an explicit conversion failure (never guess, never silently skip)
-- [ ] T019 [P] Implement `GpuInstancingApplier` in `Editor/Materials/GpuInstancingApplier.cs`:
+- [X] T019 [P] Implement `GpuInstancingApplier` in `Editor/Materials/GpuInstancingApplier.cs`:
       enable GPU Instancing on every generated `QuestMaterial` by default via the mechanism the
       target shader requires (FR-020a)
-- [ ] T020 [P] Implement `TextureTypeClassifier` in `Editor/Textures/TextureTypeClassifier.cs`:
+- [X] T020 [P] Implement `TextureTypeClassifier` in `Editor/Textures/TextureTypeClassifier.cs`:
       classify each Material texture property into Color/Normal/Mask/Emission (FR-008), driven by
       `PropertyMapping.TargetClassification`
-- [ ] T021 Implement `TextureAtlasGenerator` as pure placement-math logic (inputs: source texture
+- [X] T021 Implement `TextureAtlasGenerator` as pure placement-math logic (inputs: source texture
       dimensions/aspect ratios for one `(Material, TextureClassification)` group; output:
       `AtlasLayout` with aspect-ratio-preserving `AtlasPlacement` rects) in
       `Editor/Textures/TextureAtlasGenerator.cs` (Constitution Principle VI) — MUST NOT combine
       textures of different `TextureClassification`s into one layout (FR-008)
-- [ ] T022 [P] [Tests] EditMode tests for `TextureAtlasGenerator` placement math (aspect ratio
+- [X] T022 [P] [Tests] EditMode tests for `TextureAtlasGenerator` placement math (aspect ratio
       preserved for mismatched source sizes, e.g. 2048×2048 + 1024×2048 inputs; single-texture case
       is a no-op layout) in `Editor.Tests/TextureAtlasPlacementTests.cs`
-- [ ] T023 Implement `TextureResizer` as pure resize-math logic (input: width/height + configured
+- [X] T023 Implement `TextureResizer` as pure resize-math logic (input: width/height + configured
       max size; output: target width/height) in `Editor/Textures/TextureResizer.cs` — longest edge
       MUST NOT exceed the configured max (default 1024, FR-009), aspect ratio MUST be preserved, and
       a texture already at or below the max MUST NOT be upscaled
-- [ ] T024 [P] [Tests] EditMode tests for `TextureResizer` (oversized/undersized/already-at-max
+- [X] T024 [P] [Tests] EditMode tests for `TextureResizer` (oversized/undersized/already-at-max
       inputs against default 1024 and a custom max) in `Editor.Tests/TextureResizerTests.cs`
-- [ ] T025 [P] Implement `TextureUvTilingDetector` in `Editor/Textures/TextureUvTilingDetector.cs`:
+- [X] T025 [P] Implement `TextureUvTilingDetector` in `Editor/Textures/TextureUvTilingDetector.cs`:
       detect non-default UV Scale/Offset on a Material being merged and append a
       `ConversionLogEntry` warning (Edge Case) — MUST NOT attempt UV remapping (out of scope for v1)
-- [ ] T026 Implement `TextureAssetWriter` in `Editor/Textures/TextureAssetWriter.cs`: render
+- [X] T026 Implement `TextureAssetWriter` in `Editor/Textures/TextureAssetWriter.cs`: render
       `TextureAtlasGenerator`/`TextureResizer` output to an actual `Texture2D`, always encoded as
       lossless PNG, preserving an alpha channel whenever any source Texture used one (FR-009),
       written under `Assets/<QuestConvertedRoot>/<AvatarName>/Textures/`
-- [ ] T027 Implement `RendererMaterialReplacer` in `Editor/Pipeline/RendererMaterialReplacer.cs`:
+- [X] T027 Implement `RendererMaterialReplacer` in `Editor/Pipeline/RendererMaterialReplacer.cs`:
       point each Quest-side Renderer at its `QuestMaterial` via `ConversionContext.MaterialMap`
       (FR-010), so Renderers sharing a source `PCMaterial` end up sharing one `QuestMaterial`
       (FR-011)
-- [ ] T028 Implement `AAOIntegrator` in `Editor/Pipeline/AAOIntegrator.cs`: detect whether AAO is
+- [X] T028 Implement `AAOIntegrator` in `Editor/Pipeline/AAOIntegrator.cs`: detect whether AAO is
       installed and halt generation with a clear, actionable message before any output is produced
       if absent (FR-013); otherwise add the AAO `Trace And Optimize` Avatar Global Component to the
       Quest avatar root (FR-012) — confirm the exact component class name against the installed AAO
       package before finalizing this task (research.md §3 open verification item)
-- [ ] T029 Implement `ConversionPipeline` in `Editor/Pipeline/ConversionPipeline.cs`: orchestrate
+- [X] T029 Implement `ConversionPipeline` in `Editor/Pipeline/ConversionPipeline.cs`: orchestrate
       T013–T028 in order (AAO presence check → existing-output check → duplicate avatar → resolve
       assets → convert materials/textures → replace renderer materials → add AAO component),
       populating `ConversionContext` throughout and never writing to any PC-namespace asset
       (Constitution Principle I)
 
-**Checkpoint**: The full conversion engine runs correctly end-to-end when driven directly (e.g.
-from a temporary test menu item), producing a correct Quest avatar from default settings — no
-end-user-facing UI exists yet. All Phase 2 EditMode tests pass.
+**Checkpoint verified (2026-09-23)**: driven directly via a temporary `-executeMethod` tool
+(built a fixture PC avatar — Standard-shader Material with 5 textures across 4 target
+classifications, one oversized at 2048×2048, two sharing the Mask classification to exercise
+merging — then called `ConversionPipeline.Run` and inspected the result), confirming: Quest
+Prefab created at the correct path and position offset; AAO `Trace And Optimize` present; the
+Material converted to `VRChat/Mobile/Toon Standard` with GPU Instancing on; all 4
+`TextureMap` entries present with the oversized Color texture correctly downscaled to
+1024×1024, the two Mask-classification sources correctly merged into one 1024×512 atlas
+(preserving both sources' aspect ratios), and 15 unmapped-but-used source properties (`_Color`,
+`_Metallic`, etc.) each correctly warned rather than silently dropped. Fixture and generated
+output were deleted afterward; the verification tool itself was deleted (not shipped). All 33
+EditMode tests pass (24 carried over from T005-T012 + 9 new: 4 ShaderPropertyMapperTests, 3
+TextureAtlasPlacementTests, 6 TextureResizerTests — some tests cover multiple cases each).
+
+Implementation note (T013/T029): `ConversionPipeline`'s actual stage order runs AssetResolver
+(T013) BEFORE AvatarDuplicator (T014) — the reverse of this phase's "duplicate avatar → resolve
+assets" summary phrase — since AvatarDuplicator needs the PC avatar's already-resolved Renderer
+list to build the matching Quest-side `RendererRef`s. Also, FR-018's four independent step
+toggles are only partially wired: `ConversionSettings` (per data-model.md, T005) has no
+"Duplicate Avatar" field alongside `MergeTexturesEnabled`/`ResizeTexturesEnabled`/
+`AddAaoComponentEnabled` despite T037 naming it as a fourth toggle — a pre-existing spec
+inconsistency between data-model.md and T037, left for whoever implements T037 (Phase 4) to
+resolve; duplication always runs in the current pipeline.
 
 ---
 

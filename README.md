@@ -69,5 +69,5 @@ GUI（Generateボタン等）はまだありません。現在動かせるのは
 - 機能仕様: [`spec.md`](AI_speckit-main/specs/001-quest-avatar-converter/spec.md)
 - 実装計画: [`plan.md`](AI_speckit-main/specs/001-quest-avatar-converter/plan.md)
 - タスク一覧・進捗: [`tasks.md`](AI_speckit-main/specs/001-quest-avatar-converter/tasks.md)
-  （Phase 1 Setup: 完了 / Phase 2 Foundational: 実装中 / Phase 3-6: 未着手）
+  （Phase 1 Setup: 完了 / Phase 2 Foundational: 完了（変換エンジン本体はGUIなしで動作確認済み） / Phase 3-6: 未着手）
 - プロジェクトの原則: [`constitution.md`](AI_speckit-main/.specify/memory/constitution.md)
